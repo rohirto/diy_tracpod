@@ -25,6 +25,7 @@
 #include "esp_bt_defs.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
+#include "gps_driver.h"
 
 
 #define GATTS_SERVICE_UUID_TEST_A   0x00FF
@@ -1022,6 +1023,9 @@ void app_main(void)
     if (local_mtu_ret) {
         ESP_LOGE(COEX_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
+
+    //Init GPS Module
+    init_gps();
 
     return;
 }
