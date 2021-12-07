@@ -15,5 +15,5 @@
 
 /* Function Prototypes */
 void init_gps(void);
-
+void blink_task(void *pvParameter);
 #endif /* GPS_DRIVER_H_ */

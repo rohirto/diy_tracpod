@@ -26,6 +26,7 @@
 #include "esp_system.h"
 #include "sdkconfig.h"
 #include "gps_driver.h"
+#include "config.h"
 
 
 #define GATTS_SERVICE_UUID_TEST_A   0x00FF
@@ -1026,6 +1027,11 @@ void app_main(void)
 
     //Init GPS Module
     init_gps();
+    init_gpios();
+
+    //Task creations
+    //start gpio task
+       xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
 
     return;
 }

@@ -13,7 +13,8 @@
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 	<storageModule moduleId="org.eclipse.cdt.core.pathentry">
 		<pathentry excluding="**/CMakeFiles/**" kind="out" path="build"/>
-		<pathentry excluding="gps/" kind="src" path=""/>
+		<pathentry excluding="gps/|config/" kind="src" path=""/>
 		<pathentry kind="src" path="gps"/>
+		<pathentry kind="src" path="config"/>
 	</storageModule>
 </cproject>
