@@ -25,8 +25,10 @@
 #include "esp_bt_defs.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
-#include "gps_driver.h"
 #include "config.h"
+#include "nmea_parser.h"
+#include "ble_tasks.h"
+#include "gps_task.h"
 
 
 #define GATTS_SERVICE_UUID_TEST_A   0x00FF
@@ -1026,12 +1028,20 @@ void app_main(void)
     }
 
     //Init GPS Module
-    init_gps();
+    //init_gps();
     init_gpios();
+    gps_init();
 
     //Task creations
     //start gpio task
        xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+
+    //BLE Client task -> After a timer completion BLE client will scan for TPMS tags
+       xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
+    //BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
+       xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
+       //GPS Task -> Read GPS Data and write valid data to Flash after certain interval
+       xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
 
     return;
 }
