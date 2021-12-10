@@ -23,3 +23,10 @@ void gps_task(void* pvParams)
 		/* This should after a timer read the GPS Data and store it in flash */
 	}
 }
+
+void prvTimerCallback( TimerHandle_t xTimer )
+{
+
+	/*Start ADC conversion and store the value */
+	//ADC1_Start(&bslADC);
+}

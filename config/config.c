@@ -10,9 +10,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "config.h"
 #include "driver/gpio.h"
 
+
+/* RTOS Stuff */
+QueueHandle_t xDebugQueue;
+SemaphoreHandle_t xDebugQueueMutex;
 
 void init_gpios(void)
 {
@@ -42,5 +47,13 @@ void gpio_task_example(void* pvParams)
 			gpio_set_level(USER_LED, cnt % 2);
 			gpio_set_level(USER_LED, cnt % 2);
 		}
+	}
+}
+
+void prvDebug_Task(void* pvParams)
+{
+	for(;;)
+	{
+
 	}
 }

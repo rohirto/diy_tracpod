@@ -31,6 +31,14 @@
 #include "gps_task.h"
 
 
+//Externs
+extern QueueHandle_t xDebugQueue;
+TaskHandle_t xDebug_Handle;
+extern SemaphoreHandle_t xDebugQueueMutex;
+
+/* Func Proto */
+void ble_coex_init();
+
 #define GATTS_SERVICE_UUID_TEST_A   0x00FF
 #define GATTS_CHAR_UUID_TEST_A      0xFF01
 #define GATTS_NUM_HANDLE_TEST_A     4
@@ -948,100 +956,120 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 
 void app_main(void)
 {
-    esp_err_t ret;
-
-    // Initialize NVS.
-    ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
-
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
-
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    ret = esp_bt_controller_init(&bt_cfg);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bluedroid_init();
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bluedroid_enable();
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s enable bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_ble_gap_register_callback(gap_event_handler);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gap register error, error code = %x", ret);
-        return;
-    }
-
-    // gatts register
-    ret = esp_ble_gatts_register_callback(gatts_event_handler);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gatts register error, error code = %x", ret);
-        return;
-    }
-
-    ret = esp_ble_gatts_app_register(GATTS_PROFILE_A_APP_ID);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
-        return;
-    }
-
-    ret = esp_ble_gatts_app_register(GATTS_PROFILE_B_APP_ID);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
-        return;
-    }
-
-    // gattc regisrter
-    ret = esp_ble_gattc_register_callback(esp_gattc_cb);
-    if(ret) {
-        ESP_LOGE(COEX_TAG, "%s gattc register failed, error code = %x\n", __func__, ret);
-        return;
-    }
-
-    ret = esp_ble_gattc_app_register(GATTC_PROFILE_C_APP_ID);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s gattc app register failed, error code = %x\n", __func__, ret);
-    }
-
-    esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
-    if (local_mtu_ret) {
-        ESP_LOGE(COEX_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
-    }
-
+	//Init BLE Coex
+	ble_coex_init();
     //Init GPS Module
     //init_gps();
     init_gpios();
     gps_init();
 
+    //Queues and Mutexes
+    /* Create the Debug queue and Mutex */
+    xDebugQueue = xQueueCreate( 10, 4);
+    xDebugQueueMutex = xSemaphoreCreateMutex();
     //Task creations
     //start gpio task
-       xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+    if((xDebugQueue != NULL) & (xDebugQueueMutex != NULL))
+    {
+    	xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
 
-    //BLE Client task -> After a timer completion BLE client will scan for TPMS tags
-       xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
-    //BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
-       xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
-       //GPS Task -> Read GPS Data and write valid data to Flash after certain interval
-       xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
+    	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
+    	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
+    	//BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
+    	xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
+    	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
+    	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
+    	//Debug Task
+    	xTaskCreate(prvDebug_Task, "Debug Task", 128, NULL, 2, &xDebug_Handle);
+
+    }
+
 
     return;
+}
+
+
+
+void ble_coex_init()
+{
+	esp_err_t ret;
+
+	// Initialize NVS.
+	ret = nvs_flash_init();
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK( ret );
+
+	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
+	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+	ret = esp_bt_controller_init(&bt_cfg);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_bluedroid_init();
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_bluedroid_enable();
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s enable bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_ble_gap_register_callback(gap_event_handler);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gap register error, error code = %x", ret);
+		return;
+	}
+
+	// gatts register
+	ret = esp_ble_gatts_register_callback(gatts_event_handler);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gatts register error, error code = %x", ret);
+		return;
+	}
+
+	ret = esp_ble_gatts_app_register(GATTS_PROFILE_A_APP_ID);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
+		return;
+	}
+
+	ret = esp_ble_gatts_app_register(GATTS_PROFILE_B_APP_ID);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
+		return;
+	}
+
+	// gattc regisrter
+	ret = esp_ble_gattc_register_callback(esp_gattc_cb);
+	if(ret) {
+		ESP_LOGE(COEX_TAG, "%s gattc register failed, error code = %x\n", __func__, ret);
+		return;
+	}
+
+	ret = esp_ble_gattc_app_register(GATTC_PROFILE_C_APP_ID);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s gattc app register failed, error code = %x\n", __func__, ret);
+	}
+
+	esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
+	if (local_mtu_ret) {
+		ESP_LOGE(COEX_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
+	}
+
+
 }
