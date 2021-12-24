@@ -10,8 +10,17 @@
 #include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "nmea_parser.h"
+
+
+//RTOS Stuff
+SemaphoreHandle_t xGPSQueueMutex;
+QueueHandle_t xGPSQueue;
+
+//extern
 
 /**
  * @brief NMEA Parser runtime buffer size
@@ -37,10 +46,9 @@
 #define NMEA_MAX_STATEMENT_ITEM_LENGTH (16)
 #define NMEA_EVENT_LOOP_QUEUE_SIZE (16)
 
-static const char *TAG = "gps_demo";
 
-#define TIME_ZONE (+5)   //IST Time
-#define YEAR_BASE (2000) //date in GPS starts from 2000
+
+
 
 /**
  * @brief Define of NMEA Parser Event base
@@ -50,6 +58,8 @@ ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
 static const char *GPS_TAG = "nmea_parser";
 
+
+gps_queue_msg msg;
 /**
  * @brief GPS parser library runtime structure
  *
@@ -830,7 +840,35 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
                  gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
                  gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
                  gps->latitude, gps->longitude, gps->altitude, gps->speed);
+
+        if(gps->valid == true)
+        {
+        	//If valid data
+        	msg.valid = true;
+        	msg.lat = gps->latitude;
+        	msg.longi = gps->longitude;
+
+        }
+        else
+        {
+        	//Invalid Data
+        	msg.valid = false;
+        }
         /* Need to push to some Queue */
+        //if(gps->latitude != 0 || gps->longitude != 0)
+//        if(1)
+//        {
+//        	msg->lat = gps->latitude ; msg->longi = gps->longitude;
+//        	/* Non zero locations push it to Queue */
+//        	/* Take the Mutex */
+//        	xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
+//        	{
+//        		/* Send data to mailbox */
+//        		xQueueOverwrite(xGPSQueue, &msg);
+//        	}
+//        	/* Give back the Mutex */
+//        	xSemaphoreGive( xGPSQueueMutex );
+//        }
         break;
     case GPS_UNKNOWN:
         /* print unknown statements */
@@ -844,12 +882,23 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 void gps_init()
 {
+	/* GPS Queue handle init*/
+	msg.valid = false;
+	msg.longi = 0;
+	msg.lat = 0;
 	/* NMEA parser configuration */
 	nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
 	/* init NMEA parser library */
 	nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
 	/* register event handler for NMEA parser library */
 	nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
+
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+
+	/* unregister event handler */
+	nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
+	/* deinit NMEA parser library */
+	nmea_parser_deinit(nmea_hdl);
 
 }
 

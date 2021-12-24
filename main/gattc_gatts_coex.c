@@ -29,12 +29,15 @@
 #include "nmea_parser.h"
 #include "ble_tasks.h"
 #include "gps_task.h"
+#include "sdcard.h"
 
 
 //Externs
-extern QueueHandle_t xDebugQueue;
+extern QueueHandle_t xTagDataQueue;
+extern QueueHandle_t xGPSQueue;
 TaskHandle_t xDebug_Handle;
-extern SemaphoreHandle_t xDebugQueueMutex;
+extern SemaphoreHandle_t xTagDataQueueMutex;
+extern SemaphoreHandle_t xGPSQueueMutex;
 
 /* Func Proto */
 void ble_coex_init();
@@ -962,16 +965,20 @@ void app_main(void)
     //init_gps();
     init_gpios();
     gps_init();
+    sdcard_init();
 
     //Queues and Mutexes
     /* Create the Debug queue and Mutex */
-    xDebugQueue = xQueueCreate( 10, 4);
-    xDebugQueueMutex = xSemaphoreCreateMutex();
+    xTagDataQueue = xQueueCreate( 10, 4);
+    xTagDataQueueMutex = xSemaphoreCreateMutex();
+    //GPS Queue
+    xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg *));
+    xGPSQueueMutex = xSemaphoreCreateMutex();
     //Task creations
     //start gpio task
-    if((xDebugQueue != NULL) & (xDebugQueueMutex != NULL))
+    if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL))
     {
-    	xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+    	//xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
 
     	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
     	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
@@ -979,8 +986,12 @@ void app_main(void)
     	xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
     	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
     	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
+    	//Task to write to SD Card
+    	xTaskCreate(sdcard_Task, "sdcard_task", 2048, NULL, 10, NULL);
+    	//Task to initiate Sleep
     	//Debug Task
-    	xTaskCreate(prvDebug_Task, "Debug Task", 128, NULL, 2, &xDebug_Handle);
+    	//xTaskCreate(prvDebug_Task, "Debug Task", 2048, NULL, 10, &xDebug_Handle);
+    	//configASSERT( xDebug_Handle );
 
     }
 

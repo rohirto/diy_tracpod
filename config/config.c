@@ -13,11 +13,15 @@
 #include "freertos/semphr.h"
 #include "config.h"
 #include "driver/gpio.h"
+#include "nmea_parser.h"
+#include "esp_log.h"
+#include "esp_sleep.h"
 
 
-/* RTOS Stuff */
-QueueHandle_t xDebugQueue;
-SemaphoreHandle_t xDebugQueueMutex;
+static const char *SLEEP_TAG = "SLEEP";
+static const char *DEBUG_TAG = "DEBUG";
+char ptrTaskList[250];
+
 
 void init_gpios(void)
 {
@@ -52,8 +56,48 @@ void gpio_task_example(void* pvParams)
 
 void prvDebug_Task(void* pvParams)
 {
+
+	//gps_t *gps = NULL;
+
 	for(;;)
 	{
+		vTaskList(ptrTaskList);
+		ESP_LOGI(DEBUG_TAG,"**********************************");
+		ESP_LOGI(DEBUG_TAG,"Task  State   Prio    Stack    Num");
+		ESP_LOGI(DEBUG_TAG,"**********************************");
+		ESP_LOGI(DEBUG_TAG, "%s",(char*)ptrTaskList);
+		ESP_LOGI(DEBUG_TAG,"**********************************");
+
+		vTaskDelay(pdMS_TO_TICKS(10000));
 
 	}
 }
+
+void timer_deep_sleep(int mins)
+{
+
+	printf("Enabling timer wakeup, %d mins\n", mins);
+	esp_sleep_enable_timer_wakeup(mins*sec_TO_mins_FACTOR * uS_TO_S_FACTOR);
+	ESP_LOGI(SLEEP_TAG,"Entering Deep Sleep");
+	esp_deep_sleep_start();
+}
+
+void print_wakeup_reason(){
+  esp_sleep_wakeup_cause_t wakeup_reason;
+
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+
+  switch(wakeup_reason)
+  {
+    case ESP_SLEEP_WAKEUP_EXT0 : ESP_LOGI(SLEEP_TAG,"Wakeup caused by external signal using RTC_IO"); break;
+    case ESP_SLEEP_WAKEUP_EXT1 : ESP_LOGI(SLEEP_TAG,"Wakeup caused by external signal using RTC_CNTL"); break;
+    case ESP_SLEEP_WAKEUP_TIMER : ESP_LOGI(SLEEP_TAG,"Wakeup caused by timer"); break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD : ESP_LOGI(SLEEP_TAG,"Wakeup caused by touchpad"); break;
+    case ESP_SLEEP_WAKEUP_ULP : ESP_LOGI(SLEEP_TAG,"Wakeup caused by ULP program"); break;
+    default : ESP_LOGI(SLEEP_TAG,"Wakeup was not caused by deep sleep: %d\n",wakeup_reason); break;
+  }
+}
+
+
+
+

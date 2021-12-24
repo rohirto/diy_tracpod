@@ -20,5 +20,7 @@ void ble_server_task(void *pvParams)
 	for(;;)
 	{
 		/* BLE Server Task -> After some interval it should connect with BLE Client (Phone) and synchronize the Data */
+
+		vTaskDelay(pdMS_TO_TICKS(10000));
 	}
 }

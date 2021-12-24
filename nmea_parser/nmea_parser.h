@@ -19,6 +19,12 @@
 #define GPS_MAX_SATELLITES_IN_USE (12)
 #define GPS_MAX_SATELLITES_IN_VIEW (16)
 
+
+#define TIME_ZONE (+5)   //IST Time
+#define YEAR_BASE (2000) //date in GPS starts from 2000
+
+static const char *TAG = "GPS";
+
 ESP_EVENT_DECLARE_BASE(ESP_NMEA_EVENT);
 
 /**
@@ -112,6 +118,12 @@ typedef struct {
     float variation;                                               /*!< Magnetic variation */
 } gps_t;
 
+
+typedef struct{
+	bool valid;
+	float lat;
+	float longi;
+}gps_queue_msg;
 /**
  * @brief Configuration of NMEA Parser
  *
@@ -141,8 +153,8 @@ typedef void *nmea_parser_handle_t;
 #define NMEA_PARSER_CONFIG_DEFAULT()       \
     {                                      \
         .uart = {                          \
-            .uart_port = UART_NUM_1,       \
-            .rx_pin = 2,                   \
+            .uart_port = UART_NUM_2,       \
+            .rx_pin = 16,                   \
             .baud_rate = 9600,             \
             .data_bits = UART_DATA_8_BITS, \
             .parity = UART_PARITY_DISABLE, \

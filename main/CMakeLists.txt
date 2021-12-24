@@ -2,6 +2,8 @@ set(includedirs
 	../config
 	../nmea_parser
 	../ble_tasks
+	../flash
+	../sdcard_driver
 	.)
 
 set(src
@@ -9,6 +11,8 @@ set(src
 	../config/config.c
 	../nmea_parser/nmea_parser.c
 	../nmea_parser/gps_task.c
+	../flash/flash_task.c
+	../sdcard_driver/sdcard.c
 	../ble_tasks/ble_client.c
 	../ble_tasks/ble_server.c)
 
