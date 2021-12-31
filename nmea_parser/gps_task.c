@@ -33,8 +33,16 @@ void gps_task(void* pvParams)
 	{
 		gps_init();
 
-//		if(msg.valid == true)
-//		{
+		//if(msg.valid == true)
+		{
+			//if(msg.lat != 0 || msg.longi != 0)
+			{
+				/* Take the Mutex */
+				xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
+				xQueueOverwrite(xGPSQueue, &msg);
+				xSemaphoreGive( xGPSQueueMutex );
+
+			}
 //			//Valid GPS Data, Send to Queue
 //			/* Take the Mutex */
 //			xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
@@ -44,7 +52,7 @@ void gps_task(void* pvParams)
 //			}
 //			/* Give back the Mutex */
 //			xSemaphoreGive( xGPSQueueMutex );
-//		}
+		}
 
 		/* This should after a timer read the GPS Data and store it in SD */
 		vTaskDelay(pdMS_TO_TICKS(10000));

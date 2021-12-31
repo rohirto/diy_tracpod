@@ -32,6 +32,7 @@ typedef enum
 void init_gpios(void);
 void gpio_task_example(void*);
 void prvDebug_Task(void*);
+void init_task(void*);
 
 
 #endif /* CONFIG_H_ */

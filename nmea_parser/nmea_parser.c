@@ -832,16 +832,17 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     case GPS_UPDATE:
         gps = (gps_t *)event_data;
         /* print information parsed from GPS statements */
-        ESP_LOGI(TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                 "\t\t\t\t\t\tspeed      = %fm/s",
-                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
+//        ESP_LOGI(TAG, "%d/%d/%d %d:%d:%d => \r\n"
+//                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+//                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+//                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+//                 "\t\t\t\t\t\tspeed      = %fm/s",
+//                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+//                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+//                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
 
-        if(gps->valid == true)
+        //if(gps->latitude != 0 || gps->longitude != 0)
+        if(1)
         {
         	//If valid data
         	msg.valid = true;
@@ -883,9 +884,6 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 void gps_init()
 {
 	/* GPS Queue handle init*/
-	msg.valid = false;
-	msg.longi = 0;
-	msg.lat = 0;
 	/* NMEA parser configuration */
 	nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
 	/* init NMEA parser library */

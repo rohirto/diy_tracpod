@@ -16,6 +16,7 @@
 #include "nmea_parser.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
+#include "sdcard.h"
 
 
 static const char *SLEEP_TAG = "SLEEP";
@@ -51,6 +52,20 @@ void gpio_task_example(void* pvParams)
 			gpio_set_level(USER_LED, cnt % 2);
 			gpio_set_level(USER_LED, cnt % 2);
 		}
+	}
+}
+
+/* Init of Application level stuff */
+void init_task(void* pvParams)
+{
+	for(;;)
+	{
+		//Create or open the SD card File
+		create_file("log_file.txt");
+
+		//Delete the Task
+		vTaskDelete(NULL);
+
 	}
 }
 

@@ -27,5 +27,6 @@ app_ret write_data_to_file(char* , char* );
 app_ret read_data_from_file(char* , char* , size_t );
 app_ret rename_file(char* , char* );
 app_ret sdcard_deinit(void);
+app_ret create_file(char* );
 
 #endif /* SDCARD_H_ */

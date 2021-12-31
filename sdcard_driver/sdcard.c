@@ -27,10 +27,12 @@ static const char *SD_TAG = "SD CARD";
 // Pin mapping
 #if CONFIG_IDF_TARGET_ESP32
 
-#define PIN_NUM_MISO 2
-#define PIN_NUM_MOSI 15
-#define PIN_NUM_CLK  14
-#define PIN_NUM_CS   13
+#define CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED	ON
+
+#define PIN_NUM_MISO 19//12//2//12
+#define PIN_NUM_MOSI 23//13//15//13
+#define PIN_NUM_CLK  18//14//14//14
+#define PIN_NUM_CS   5//15//13//15
 #endif
 
 #define SPI_DMA_CHAN    1
@@ -113,6 +115,11 @@ app_ret sdcard_init(void)
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_config.gpio_cs = PIN_NUM_CS;
     slot_config.host_id = host.slot;
+    gpio_set_pull_mode(5, GPIO_PULLUP_ONLY);   // CMD, needed in 4- and 1- line modes
+
+    gpio_set_pull_mode(18, GPIO_PULLUP_ONLY);    // D1, needed in 4-line mode only
+    gpio_set_pull_mode(23, GPIO_PULLUP_ONLY);   // D2, needed in 4-line mode only
+    gpio_set_pull_mode(19, GPIO_PULLUP_ONLY);   // D3, needed in 4- and 1-line modes
 
     ESP_LOGI(SD_TAG, "Mounting filesystem");
     ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
@@ -145,8 +152,13 @@ void sd_handle_init(void)
 }
 app_ret create_file(char* filename)
 {
+#if 1
 	struct stat st;
-	const char* file =  strcat((char*)MOUNT_POINT,(char*)filename);
+	char* file ;
+	file = malloc(strlen(MOUNT_POINT)+strlen(filename) +3);
+	//file = strcat((char*)MOUNT_POINT,(char*)filename);
+	sprintf(file,"%s/%s",MOUNT_POINT,filename);
+	ESP_LOGI(SD_TAG,"%s",file);
 	if(sd_handle.mounted == true && sd_handle.busy == false)
 	{
 		//SD busy flag
@@ -168,10 +180,28 @@ app_ret create_file(char* filename)
 	else
 	{
 		return app_error;
+
+	}
+	return app_success;
+#endif
+#if 0
+	if(sd_handle.mounted == true && sd_handle.busy == false){
+	FILE* f = fopen(MOUNT_POINT"/hello.txt", "w");
+	if (f == NULL) {
+		ESP_LOGE(TAG, "Failed to open file for writing");
+		return app_error;
+	}
+	fprintf(f, "Hello %s!\n", card->cid.name);
+	fclose(f);
+	ESP_LOGI(TAG, "File written");
+	}
+	else
+	{
+		return app_error;
 	}
 
 	return app_success;
-
+#endif
 }
 
 

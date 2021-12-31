@@ -979,13 +979,14 @@ void app_main(void)
     if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL))
     {
     	//xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
-
+    	//Init task to init everything and then delete itself
+    	xTaskCreate(init_task, "init_task", 2048, NULL, 11, NULL);
     	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
     	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
     	//BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
     	xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
     	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
-    	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
+    	//xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
     	//Task to write to SD Card
     	xTaskCreate(sdcard_Task, "sdcard_task", 2048, NULL, 10, NULL);
     	//Task to initiate Sleep
