@@ -18,41 +18,26 @@
 #include "esp_log.h"
 #include "gps_task.h"
 #include "nmea_parser.h"
+#include "app_config.h"
 
 
 
 //Extern
-extern gps_queue_msg msg;
-extern SemaphoreHandle_t xGPSQueueMutex;
-extern QueueHandle_t xGPSQueue;
+//extern gps_queue_msg msg;
+//extern SemaphoreHandle_t xGPSQueueMutex;
+//extern QueueHandle_t xGPSQueue;
+
+m_gps_handle gps_handle;
+const char* GPS_LOG	="GPS.txt";
 
 /* Get valid and latest GPS Data and send it to SD Card */
 void gps_task(void* pvParams)
 {
+	//gps_queue_msg *msg_1 = NULL;
 	for(;;)
 	{
+		/* Calls GPS module every 10 secs then sleeps*/
 		gps_init();
-
-		//if(msg.valid == true)
-		{
-			//if(msg.lat != 0 || msg.longi != 0)
-			{
-				/* Take the Mutex */
-				xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
-				xQueueOverwrite(xGPSQueue, &msg);
-				xSemaphoreGive( xGPSQueueMutex );
-
-			}
-//			//Valid GPS Data, Send to Queue
-//			/* Take the Mutex */
-//			xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
-//			{
-//				/* Send data to mailbox */
-//				xQueueOverwrite(xGPSQueue, &msg);
-//			}
-//			/* Give back the Mutex */
-//			xSemaphoreGive( xGPSQueueMutex );
-		}
 
 		/* This should after a timer read the GPS Data and store it in SD */
 		vTaskDelay(pdMS_TO_TICKS(10000));

@@ -25,7 +25,7 @@
 #include "esp_bt_defs.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
-#include "config.h"
+#include "app_config.h"
 #include "nmea_parser.h"
 #include "ble_tasks.h"
 #include "gps_task.h"
@@ -38,6 +38,8 @@ extern QueueHandle_t xGPSQueue;
 TaskHandle_t xDebug_Handle;
 extern SemaphoreHandle_t xTagDataQueueMutex;
 extern SemaphoreHandle_t xGPSQueueMutex;
+extern ble_server_handle server_handle;
+extern sdcard_handle sd_handle;
 
 /* Func Proto */
 void ble_coex_init();
@@ -65,13 +67,13 @@ void ble_coex_init();
 #define REMOTE_SERVICE_UUID         0x00FF
 #define REMOTE_NOTIFY_CHAR_UUID     0xFF01
 #define INVALID_HANDLE              0
-#define GATTS_ADV_NAME              "ESP_GATTS_DEMO"
+#define GATTS_ADV_NAME              "DIY_TRACPOD"
 #define COEX_TAG                    "GATTC_GATTS_COEX"
 #define NOTIFY_ENABLE               0x0001
 #define INDICATE_ENABLE             0x0002
 #define NOTIFY_INDICATE_DISABLE     0x0000
 
-static const char remote_device_name[] = "ESP_GATTS_DEMO";
+//static const char remote_device_name[] = "ESP_GATTS_DEMO";
 
 typedef struct {
     uint8_t                 *prepare_buf;
@@ -277,7 +279,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
         ESP_LOGI(COEX_TAG, "ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT, set scan sparameters complete\n");
         //the unit of the duration is second
-        uint32_t duration = 120;
+        uint32_t duration = 10;
         esp_ble_gap_start_scanning(duration);
         break;
     }
@@ -292,21 +294,41 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
         switch (scan_result->scan_rst.search_evt) {
         case ESP_GAP_SEARCH_INQ_RES_EVT:
-            adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
-                                                ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
-            if (adv_name != NULL) {
-                if (strlen(remote_device_name) == adv_name_len && strncmp((char *)adv_name, remote_device_name, adv_name_len) == 0) {
-                    if (connect == false) {
-                        connect = true;
-                        ESP_LOGI(COEX_TAG, "connect to the remote device %s\n", remote_device_name);
-                        esp_ble_gap_stop_scanning();
-                        esp_ble_gattc_open(gattc_profile_tab[GATTC_PROFILE_C_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
-                    }
-                }
-            }
+        	/* BLE Scan results Here */
+        	 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+        	 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+        	 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+        	 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+        	 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+
+        	 //Get Service UUID if that Service UUID matches then OK
+
+        	 //esp_ble_gap_stop_scanning();
+        	 //esp_bluedroid_disable();
+        	 //esp_bt_controller_disable();
+        	 /*Now we enable it again*/
+        	 //esp_bt_controller_enable(ESP_BT_MODE_BLE);
+        	 //esp_ble_gap_set_scan_params(&ble_scan_params);
+        	 //            adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
+//                                                ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//            if (adv_name != NULL) {
+//                if (strlen(remote_device_name) == adv_name_len && strncmp((char *)adv_name, remote_device_name, adv_name_len) == 0) {
+//                    if (connect == false) {
+//                        connect = true;
+//                        ESP_LOGI(COEX_TAG, "connect to the remote device %s\n", remote_device_name);
+//                        esp_ble_gap_stop_scanning();
+//                        esp_ble_gattc_open(gattc_profile_tab[GATTC_PROFILE_C_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
+//                    }
+//                }
+//            }
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
-             ESP_LOGI(COEX_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT, scan stop\n");
+             ESP_LOGI(COEX_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT, restarting scan\n");
+             //esp_bluedroid_disable();
+             //esp_bt_controller_disable();
+             /*Now we enable it again*/
+             //esp_bt_controller_enable(ESP_BT_MODE_BLE);
+             //esp_ble_gap_set_scan_params(&ble_scan_params);
             break;
         default:
             break;
@@ -659,6 +681,11 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 if (descr_value == NOTIFY_ENABLE) {
                     if (a_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
                         ESP_LOGI(COEX_TAG, "notify enable\n");
+                        /* Modify the hanlde */
+                        server_handle.notify_enabled = true;
+                        server_handle.app_gatt_if =gatts_if;
+                        server_handle.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+                        server_handle.conn_id =  param->write.conn_id;
                         uint8_t notify_data[15];
                         for (int i = 0; i < sizeof(notify_data); ++ i) {
                             notify_data[i] = i%0xff;
@@ -680,6 +707,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                     }
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
                     ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
+                    /* Modify the handle */
+                    server_handle.notify_enabled = false;
                 } else {
                     ESP_LOGE(COEX_TAG, "unknown descr value\n");
                     esp_log_buffer_hex(COEX_TAG, param->write.value, param->write.len);
@@ -744,11 +773,15 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                  param->connect.remote_bda[0], param->connect.remote_bda[1], param->connect.remote_bda[2],
                  param->connect.remote_bda[3], param->connect.remote_bda[4], param->connect.remote_bda[5]);
         gatts_profile_tab[GATTS_PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
+        /* Modify the handle */
+        server_handle.connected = true;
         break;
     }
     case ESP_GATTS_DISCONNECT_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x\n", param->disconnect.reason);
         esp_ble_gap_start_advertising(&adv_params);
+        /* Modify the handle */
+        server_handle.connected = false;
         break;
     case ESP_GATTS_CONF_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d\n", param->conf.status, param->conf.handle);
@@ -964,7 +997,9 @@ void app_main(void)
     //Init GPS Module
     //init_gps();
     init_gpios();
-    gps_init();
+    //gps_init();
+    sd_handle.busy = false;
+    sd_handle.mounted = false;
     sdcard_init();
 
     //Queues and Mutexes
@@ -972,7 +1007,7 @@ void app_main(void)
     xTagDataQueue = xQueueCreate( 10, 4);
     xTagDataQueueMutex = xSemaphoreCreateMutex();
     //GPS Queue
-    xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg *));
+    xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg));
     xGPSQueueMutex = xSemaphoreCreateMutex();
     //Task creations
     //start gpio task
@@ -980,13 +1015,13 @@ void app_main(void)
     {
     	//xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
     	//Init task to init everything and then delete itself
-    	xTaskCreate(init_task, "init_task", 2048, NULL, 11, NULL);
+    	xTaskCreate(init_task, "init_task", 4018, NULL, 11, NULL);
     	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
     	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
     	//BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
     	xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
     	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
-    	//xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
+    	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
     	//Task to write to SD Card
     	xTaskCreate(sdcard_Task, "sdcard_task", 2048, NULL, 10, NULL);
     	//Task to initiate Sleep

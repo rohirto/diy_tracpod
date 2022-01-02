@@ -20,12 +20,13 @@
 #define GPS_MAX_SATELLITES_IN_VIEW (16)
 
 
-#define TIME_ZONE (+5)   //IST Time
+#define TIME_ZONE (-5)   //IST Time
 #define YEAR_BASE (2000) //date in GPS starts from 2000
 
-static const char *TAG = "GPS";
 
 ESP_EVENT_DECLARE_BASE(ESP_NMEA_EVENT);
+
+static const char *TAG = "GPS";
 
 /**
  * @brief GPS fix type
@@ -123,6 +124,8 @@ typedef struct{
 	bool valid;
 	float lat;
 	float longi;
+	gps_date_t date;
+	gps_time_t tim;
 }gps_queue_msg;
 /**
  * @brief Configuration of NMEA Parser

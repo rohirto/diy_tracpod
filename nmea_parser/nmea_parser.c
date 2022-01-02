@@ -14,6 +14,8 @@
 #include "freertos/semphr.h"
 #include "esp_log.h"
 #include "nmea_parser.h"
+#include "gps_task.h"
+#include "app_config.h"
 
 
 //RTOS Stuff
@@ -21,6 +23,7 @@ SemaphoreHandle_t xGPSQueueMutex;
 QueueHandle_t xGPSQueue;
 
 //extern
+extern m_gps_handle gps_handle;
 
 /**
  * @brief NMEA Parser runtime buffer size
@@ -827,7 +830,9 @@ esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_ha
  */
 static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
+
     gps_t *gps = NULL;
+    gps_queue_msg msg_1;
     switch (event_id) {
     case GPS_UPDATE:
         gps = (gps_t *)event_data;
@@ -841,35 +846,37 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 //                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
 //                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
 
-        //if(gps->latitude != 0 || gps->longitude != 0)
-        if(1)
+        if(gps->latitude != 0 || gps->longitude != 0)
+        //if(0)
         {
-        	//If valid data
-        	msg.valid = true;
-        	msg.lat = gps->latitude;
-        	msg.longi = gps->longitude;
+        	//Copy in msg_1
+        	msg_1.lat = gps->latitude;
+        	msg_1.longi = gps->longitude;
+        	msg_1.date.year = gps->date.year + YEAR_BASE;
+        	msg_1.date.month = gps->date.month;
+        	msg_1.date.day = gps->date.day;
+        	msg_1.tim.hour = ((gps->tim.hour) + 5)%24; // + TIME_ZONE)%24;
+        	msg_1.tim.minute = gps->tim.minute + 30;
+        	msg_1.tim.second = gps->tim.second;
+        	msg_1.valid = true;
+        	//ESP_LOGI(TAG,"Lat: %.02f",msg_1.lat);
+        	//msg_1->valid = true;
+        	/* Take the Mutex */
+        	//xSemaphoreTake(xGPSQueueMutex, ( TickType_t ) 10);
+        	xQueueSendToBack(xGPSQueue, &msg_1, ( TickType_t ) 20 );
+
+        		//ESP_LOGE(TAG,"Queue Write Fail");
+
+        	//xSemaphoreGive( xGPSQueueMutex );
 
         }
         else
         {
         	//Invalid Data
-        	msg.valid = false;
+        	//msg.valid = false;
         }
-        /* Need to push to some Queue */
-        //if(gps->latitude != 0 || gps->longitude != 0)
-//        if(1)
-//        {
-//        	msg->lat = gps->latitude ; msg->longi = gps->longitude;
-//        	/* Non zero locations push it to Queue */
-//        	/* Take the Mutex */
-//        	xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
-//        	{
-//        		/* Send data to mailbox */
-//        		xQueueOverwrite(xGPSQueue, &msg);
-//        	}
-//        	/* Give back the Mutex */
-//        	xSemaphoreGive( xGPSQueueMutex );
-//        }
+
+
         break;
     case GPS_UNKNOWN:
         /* print unknown statements */
@@ -890,13 +897,14 @@ void gps_init()
 	nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
 	/* register event handler for NMEA parser library */
 	nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
-
+	gps_handle.init = true;
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
 
 	/* unregister event handler */
 	nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
 	/* deinit NMEA parser library */
 	nmea_parser_deinit(nmea_hdl);
+	gps_handle.init = false;
 
 }
 

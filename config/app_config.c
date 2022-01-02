@@ -4,6 +4,7 @@
  *  Created on: 07-Dec-2021
  *      Author: Treel
  */
+#include "app_config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -11,22 +12,28 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
-#include "config.h"
 #include "driver/gpio.h"
 #include "nmea_parser.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "sdcard.h"
+#include "gps_task.h"
+#include "ble_tasks.h"
 
 
 static const char *SLEEP_TAG = "SLEEP";
 static const char *DEBUG_TAG = "DEBUG";
+static const char *INIT_TAG = "INIT";
 char ptrTaskList[250];
-
+extern m_gps_handle gps_handle;
+extern sdcard_handle sd_handle;
+extern ble_server_handle server_handle;
+extern file_handle gps_file_handle;
 
 void init_gpios(void)
 {
 	//zero-initialize the config structure.
+	//USer LED
 	gpio_config_t io_conf = {};
 	//disable interrupt
 	io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -40,6 +47,51 @@ void init_gpios(void)
 	io_conf.pull_up_en = 0;
 	//configure GPIO with the given settings
 	gpio_config(&io_conf);
+
+	/* SD Lines */
+	gpio_set_pull_mode(5, GPIO_PULLUP_ONLY);   // CMD, needed in 4- and 1- line modes
+
+	gpio_set_pull_mode(18, GPIO_PULLUP_ONLY);    // D1, needed in 4-line mode only
+	gpio_set_pull_mode(23, GPIO_PULLUP_ONLY);   // D2, needed in 4-line mode only
+	gpio_set_pull_mode(19, GPIO_PULLUP_ONLY);   // D3, needed in 4- and 1-line modes
+
+}
+
+void init_handles(void)
+{
+	gps_handle.busy =false;
+	gps_handle.init =false;
+	gps_handle.valid_data = false;
+
+
+	server_handle.busy = false;
+	server_handle.connected = false;
+	server_handle.notify_enabled = false;
+
+	gps_file_handle.current_line = 0;
+	gps_file_handle.total_lines = 0;
+	gps_file_handle.file_type = GPS_FILE_TYPE;
+	gps_file_handle.valid_data = false;
+
+	if(sd_handle.mounted == true)
+	{
+		if(if_exists("GPS.txt") == app_success)
+		{
+			gps_file_handle.if_exist = true;
+			ESP_LOGI(INIT_TAG,"GPS File Exits!");
+		}
+		else
+		{
+			gps_file_handle.if_exist = false;
+			ESP_LOGI(INIT_TAG,"GPS File Does not Exits!");
+		}
+	}
+	else
+	{
+		ESP_LOGE(INIT_TAG,"SD not Mounted");
+	}
+
+
 }
 void gpio_task_example(void* pvParams)
 {
@@ -60,9 +112,14 @@ void init_task(void* pvParams)
 {
 	for(;;)
 	{
-		//Create or open the SD card File
-		create_file("log_file.txt");
+		//Init handles
+		init_handles();
 
+		//Create or open the SD card File
+		//create_file("log_file.txt");
+		//write_data_to_file("GPS.txt","GPS_Data\n");
+		//write_data_to_file("Tag_log_file.txt","Tag_Data\n");
+		ESP_LOGI(INIT_TAG,"Init Task completed, Deleting Task");
 		//Delete the Task
 		vTaskDelete(NULL);
 

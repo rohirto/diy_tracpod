@@ -15,6 +15,7 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
+#include "app_config.h"
 
 /* RTOS Stuff */
 QueueHandle_t xTagDataQueue;
@@ -26,7 +27,10 @@ void ble_client_task(void* pvParams)
 	for(;;)
 	{
 		/* Routine Task after some time to Scan for TPMS Tags */
-
+		/* Start BLE Scan */
+		/* Get Notification from BLE Handler */
+		/* Process Buffer */
+		/* Send to Tag Data Queue */
 		vTaskDelay(pdMS_TO_TICKS(10000));
 	}
 }

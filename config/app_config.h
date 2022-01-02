@@ -5,10 +5,12 @@
  *      Author: Treel
  */
 
-#ifndef CONFIG_H_
-#define CONFIG_H_
+#ifndef APP_CONFIG_H_
+#define APP_CONFIG_H_
 
 /* Includes */
+#include <string.h>
+#include <stdio.h>
 
 /* Board Config */
 #define USER_LED	2
@@ -18,7 +20,9 @@
 #define ms_TO_S_FACTOR		1000
 #define sec_TO_mins_FACTOR	60
 
-
+//Defines
+#define TICKS_TO_WAIT  	10
+//#define GPS_LOG		("GPS.txt")
 /* Enum */
 typedef enum
 {
@@ -35,4 +39,4 @@ void prvDebug_Task(void*);
 void init_task(void*);
 
 
-#endif /* CONFIG_H_ */
+#endif /* APP_CONFIG_H_ */

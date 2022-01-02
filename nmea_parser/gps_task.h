@@ -9,15 +9,16 @@
 #define GPS_TASK_H_
 
 
+//defines
+#define GPS_BUFFER_LEN	38
+#define GPS_FILE_TYPE 0x01
+
 /* Structs */
 typedef struct
 {
 	bool busy;
 	bool valid_data;
-	float latitude;                                                /*!< Latitude (degrees) */
-	float longitude;                                               /*!< Longitude (degrees) */
-	float altitude;                                                /*!< Altitude (meters) */
-
+	bool init;
 }m_gps_handle;
 
 
