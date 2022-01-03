@@ -30,6 +30,7 @@
 #include "ble_tasks.h"
 #include "gps_task.h"
 #include "sdcard.h"
+#include "treel_tag.h"
 
 
 //Externs
@@ -39,7 +40,11 @@ TaskHandle_t xDebug_Handle;
 extern SemaphoreHandle_t xTagDataQueueMutex;
 extern SemaphoreHandle_t xGPSQueueMutex;
 extern ble_server_handle server_handle;
+extern ble_client_handle client_handle;
 extern sdcard_handle sd_handle;
+extern esp_bd_addr_t	tpms_r_tag_mac ;
+extern esp_bd_addr_t	tpms_f_tag_mac  ;
+extern treel_tag_data app_tag_r, app_tag_f;
 
 /* Func Proto */
 void ble_coex_init();
@@ -67,7 +72,7 @@ void ble_coex_init();
 #define REMOTE_SERVICE_UUID         0x00FF
 #define REMOTE_NOTIFY_CHAR_UUID     0xFF01
 #define INVALID_HANDLE              0
-#define GATTS_ADV_NAME              "DIY_TRACPOD"
+#define GATTS_ADV_NAME              "GATTS_DEMO"
 #define COEX_TAG                    "GATTC_GATTS_COEX"
 #define NOTIFY_ENABLE               0x0001
 #define INDICATE_ENABLE             0x0002
@@ -279,7 +284,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
         ESP_LOGI(COEX_TAG, "ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT, set scan sparameters complete\n");
         //the unit of the duration is second
-        uint32_t duration = 10;
+        uint32_t duration = 120;
         esp_ble_gap_start_scanning(duration);
         break;
     }
@@ -295,12 +300,44 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         switch (scan_result->scan_rst.search_evt) {
         case ESP_GAP_SEARCH_INQ_RES_EVT:
         	/* BLE Scan results Here */
-        	 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
-        	 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
-        	 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
-        	 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
-        	 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+//        	 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+//        	 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+//        	 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//        	 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+//        	 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
 
+        	 /* If the result matches any tpms tag data */
+        	 if(memcmp(scan_result->scan_rst.bda, tpms_r_tag_mac, 6) == 0)
+        	 {
+        		 //If Rear equal
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+//        		 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+//        		 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+//        		 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "ADV Data: ");
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 memcpy(app_tag_r.payload_buff,scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 app_tag_r.tag_detected = true;
+
+        	 }
+        	 else if(memcmp(scan_result->scan_rst.bda, tpms_f_tag_mac, 6) == 0)
+        	 {
+        		 //If Front equal
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+//        		 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+//        		 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+//        		 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "ADV Data: ");
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 memcpy(app_tag_f.payload_buff,scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 app_tag_f.tag_detected = true;
+        	 }
+        	 else
+        	 {
+        		 //Rougue Tag
+        	 }
         	 //Get Service UUID if that Service UUID matches then OK
 
         	 //esp_ble_gap_stop_scanning();
@@ -324,6 +361,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
              ESP_LOGI(COEX_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT, restarting scan\n");
+             client_handle.scan_complete = true;
              //esp_bluedroid_disable();
              //esp_bt_controller_disable();
              /*Now we enable it again*/
@@ -1004,7 +1042,7 @@ void app_main(void)
 
     //Queues and Mutexes
     /* Create the Debug queue and Mutex */
-    xTagDataQueue = xQueueCreate( 10, 4);
+    xTagDataQueue = xQueueCreate( 2, sizeof(tag_queue_msg));
     xTagDataQueueMutex = xSemaphoreCreateMutex();
     //GPS Queue
     xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg));

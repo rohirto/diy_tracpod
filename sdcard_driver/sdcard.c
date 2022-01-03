@@ -17,6 +17,7 @@
 #include "nmea_parser.h"
 #include "gps_task.h"
 #include "treel_tag.h"
+#include "ble_tasks.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -46,14 +47,18 @@ sdmmc_card_t *card;
 const char mount_point[] = MOUNT_POINT;
 sdmmc_host_t host = SDSPI_HOST_APP();
 file_handle gps_file_handle;
+file_handle f_tag_file_handle;
+file_handle r_tag_file_handle;
 
 
 //externs
 extern QueueHandle_t xGPSQueue;
+extern QueueHandle_t xTagDataQueue;
 extern m_gps_handle gps_handle;
 void sdcard_Task(void* pvParams)
 {
 	gps_queue_msg gps;
+	tag_queue_msg tag;
 
 	//gps = malloc(sizeof(struct gps_queue_msg *));
 	for(;;)
@@ -71,6 +76,36 @@ void sdcard_Task(void* pvParams)
 					write_data_to_file("GPS.txt",sd_buffer);
 					gps_file_handle.if_exist = true;
 					gps_file_handle.file_read = false;
+
+				}
+				else
+				{
+					//SD Card busy
+					ESP_LOGE(SD_TAG,"Error SD Card not mounted or Busy");
+				}
+			}
+
+		}
+		if(sd_handle.mounted == true)
+		{
+			if(xQueueReceive(xTagDataQueue, &tag, ( TickType_t ) 20 ) == pdPASS)
+			{
+				ESP_LOGI(SD_TAG, "Temperature: %d\tPressure: %d\tTag Batt: %d", tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+				//Write to SD Card
+				if(sd_handle.mounted == true && sd_handle.busy == false && tag.tag_type == FRONT_TAG_TYPE)
+				{
+					sprintf(sd_buffer,"%04d\t%05d\t%03d\n",tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+					write_data_to_file("front.txt",sd_buffer);
+					f_tag_file_handle.if_exist = true;
+					f_tag_file_handle.file_read = false;
+
+				}
+				else if(sd_handle.mounted == true && sd_handle.busy == false && tag.tag_type == REAR_TAG_TYPE)
+				{
+					sprintf(sd_buffer,"%04d\t%05d\t%03d\n",tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+					write_data_to_file("rear.txt",sd_buffer);
+					r_tag_file_handle.if_exist = true;
+					r_tag_file_handle.file_read = false;
 
 				}
 				else
@@ -370,12 +405,13 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 			sd_handle.busy = false;
 			return app_error;
 		}
-		if(file_to_handle->file_type == GPS_FILE_TYPE)
+		switch(file_to_handle->file_type)
 		{
+		case GPS_FILE_TYPE:
 			if(file_to_handle->current_line != 0)
 			{
 				//Set the position
-				 fseek( f, (file_to_handle->current_line*GPS_BUFFER_LEN),SEEK_SET);
+				fseek( f, (file_to_handle->current_line*GPS_BUFFER_LEN),SEEK_SET);
 			}
 			//GPS File handling
 			for (i = 0; i < GPS_BUFFER_LEN; i++)
@@ -388,7 +424,7 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 				//Last byte of the buffer must be new line then valid buffer
 				file_to_handle->current_line++;
 				*buffer = '\0';
-				ESP_LOGI(SD_TAG, "Successfully copied the Buffer");
+				ESP_LOGI(SD_TAG, "GPS Successfully copied the Buffer");
 				file_to_handle->valid_data = true;
 				fclose(f);
 				sd_handle.busy = false;
@@ -412,13 +448,53 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 				sd_handle.busy = false;
 				return app_error;
 			}
+			break;
+		case TAG_FILE_TYPE:
+			if(file_to_handle->current_line != 0)
+			{
+				//Set the position
+				fseek( f, (file_to_handle->current_line*TAG_BUFFER_LEN),SEEK_SET);
+			}
+			//Tag File handling
+			for (i = 0; i < TAG_BUFFER_LEN; i++)
+			{
+				temp = fgetc(f);
+				*buffer++ = temp;
+			}
+			if(temp == '\n')
+			{
+				//Last byte of the buffer must be new line then valid buffer
+				file_to_handle->current_line++;
+				*buffer = '\0';
+				ESP_LOGI(SD_TAG, " TAG Successfully copied the Buffer");
+				file_to_handle->valid_data = true;
+				fclose(f);
+				sd_handle.busy = false;
+				return app_success;
+			}
+			else if(feof(f))
+			{
+				fclose(f);
+				//Delete the File
+				//delete_file(filename);
+				ESP_LOGI(SD_TAG, "TAG successfully copied the Buffer");
+				file_to_handle->file_read = true;
+				sd_handle.busy = false;
+				return app_success;
 
+			}
+			else
+			{
+				ESP_LOGE(SD_TAG, "Corrupt TAG File!");
+				fclose(f);
+				sd_handle.busy = false;
+				return app_error;
+			}
+			break;
+		default:
+			break;
 		}
-		else if(file_to_handle->file_type == TAG_FILE_TYPE)
-		{
-			//Tag file handling
-		}
-		sd_handle.busy = false;
+
 	}
 
 	return app_error;

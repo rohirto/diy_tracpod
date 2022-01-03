@@ -19,6 +19,8 @@
 #include "sdcard.h"
 #include "gps_task.h"
 #include "ble_tasks.h"
+#include "esp_bt_defs.h"
+#include "treel_tag.h"
 
 
 static const char *SLEEP_TAG = "SLEEP";
@@ -28,7 +30,11 @@ char ptrTaskList[250];
 extern m_gps_handle gps_handle;
 extern sdcard_handle sd_handle;
 extern ble_server_handle server_handle;
+extern ble_client_handle client_handle;
 extern file_handle gps_file_handle;
+extern file_handle f_tag_file_handle;
+extern file_handle r_tag_file_handle;
+extern treel_tag_data app_tag_r, app_tag_f;
 
 void init_gpios(void)
 {
@@ -59,6 +65,7 @@ void init_gpios(void)
 
 void init_handles(void)
 {
+	int i;
 	gps_handle.busy =false;
 	gps_handle.init =false;
 	gps_handle.valid_data = false;
@@ -67,6 +74,8 @@ void init_handles(void)
 	server_handle.busy = false;
 	server_handle.connected = false;
 	server_handle.notify_enabled = false;
+
+	client_handle.scan_complete = false;
 
 	gps_file_handle.current_line = 0;
 	gps_file_handle.total_lines = 0;
@@ -90,7 +99,58 @@ void init_handles(void)
 	{
 		ESP_LOGE(INIT_TAG,"SD not Mounted");
 	}
+	f_tag_file_handle.current_line = 0;
+	f_tag_file_handle.total_lines = 0;
+	f_tag_file_handle.file_type = TAG_FILE_TYPE;
+	f_tag_file_handle.valid_data = false;
 
+	if(sd_handle.mounted == true)
+	{
+		if(if_exists("front.txt") == app_success)
+		{
+			f_tag_file_handle.if_exist = true;
+			ESP_LOGI(INIT_TAG,"Front Tag File Exits!");
+		}
+		else
+		{
+			f_tag_file_handle.if_exist = false;
+			ESP_LOGI(INIT_TAG,"Front Tag File Does not Exits!");
+		}
+	}
+	else
+	{
+		ESP_LOGE(INIT_TAG,"SD not Mounted");
+	}
+	r_tag_file_handle.current_line = 0;
+	r_tag_file_handle.total_lines = 0;
+	r_tag_file_handle.file_type = TAG_FILE_TYPE;
+	r_tag_file_handle.valid_data = false;
+
+	if(sd_handle.mounted == true)
+	{
+		if(if_exists("rear.txt") == app_success)
+		{
+			r_tag_file_handle.if_exist = true;
+			ESP_LOGI(INIT_TAG,"Rear Tag File Exits!");
+		}
+		else
+		{
+			r_tag_file_handle.if_exist = false;
+			ESP_LOGI(INIT_TAG,"Rear Tag File Does not Exits!");
+		}
+	}
+	else
+	{
+		ESP_LOGE(INIT_TAG,"SD not Mounted");
+	}
+
+
+
+	app_tag_r.tag_detected = false;
+	app_tag_f.tag_detected =false;
+
+	memset(app_tag_r.payload_buff, '\0', TREEL_ADV_DATA_LEN);
+	memset(app_tag_f.payload_buff, '\0', TREEL_ADV_DATA_LEN);
 
 }
 void gpio_task_example(void* pvParams)

@@ -9,6 +9,7 @@
 #define BLE_TASKS_H_
 
 #include "esp_gatt_defs.h"
+#include "app_config.h"
 #include <stdio.h>
 #include <stdint.h>
 
@@ -30,6 +31,8 @@
 #define APP_BLE_SCAN_INTERVAL			//in ms
 #define APP_BLE_SCAN_TIME		10		//in secs
 
+#define TAG_BUFFER_LEN			15
+
 
 
 //Structs
@@ -47,12 +50,18 @@ typedef struct
 
 }ble_server_handle;
 
-
+typedef struct
+{
+	bool scan_complete;
+}ble_client_handle;
 
 
 /* BLE Tasks definitions */
 void ble_client_task(void*);
 void ble_server_task(void*);
+app_ret gps_file_handling();
+app_ret f_tag_file_handling();
+app_ret r_tag_file_handling()
 
 
 
