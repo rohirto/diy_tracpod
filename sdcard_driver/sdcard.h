@@ -15,7 +15,7 @@
 typedef struct
 {
 	bool mounted;
-	bool busy;
+	//bool busy;
 
 }sdcard_handle;
 
@@ -57,7 +57,8 @@ typedef struct
 }
 
 //Function Prototypes
-void sdcard_Task(void* );
+void gpslogger_Task(void* pvParams);
+void taglogger_Task(void* pvParams);
 app_ret sdcard_init(void);
 void sd_handle_init(void);
 app_ret delete_file(char* );

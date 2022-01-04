@@ -53,6 +53,7 @@ void ble_client_task(void* pvParams)
 				{
 					//Print Data
 					//print_tag_data(&app_tag_r);
+					memcpy(app_tag_r.tag_addr, msg_1.tag_addr,6);
 					msg_1.tag_type = REAR_TAG_TYPE;
 					msg_1.tag_temperature = app_tag_r.tag_temperature;
 					msg_1.tag_pressure = app_tag_r.tag_pressure;
@@ -73,6 +74,8 @@ void ble_client_task(void* pvParams)
 				{
 					//Print
 					//print_tag_data(&app_tag_f);
+					memcpy(app_tag_f.tag_addr, msg_1.tag_addr,6);
+
 					msg_1.tag_type = FRONT_TAG_TYPE;
 					msg_1.tag_temperature = app_tag_f.tag_temperature;
 					msg_1.tag_pressure = app_tag_f.tag_pressure;

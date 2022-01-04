@@ -39,6 +39,7 @@ extern QueueHandle_t xGPSQueue;
 TaskHandle_t xDebug_Handle;
 extern SemaphoreHandle_t xTagDataQueueMutex;
 extern SemaphoreHandle_t xSDMutex;
+extern SemaphoreHandle_t xFileMutex;
 extern SemaphoreHandle_t xGPSQueueMutex;
 extern ble_server_handle server_handle_gps;
 extern ble_server_handle server_handle_tag;
@@ -58,6 +59,10 @@ void ble_coex_init();
 #define GATTS_SERVICE_UUID_TEST_B   0x00EE
 #define GATTS_CHAR_UUID_TEST_B      0xEE01
 #define GATTS_NUM_HANDLE_TEST_B     4
+
+#define GATTS_SERVICE_UUID_TEST_C   0x00DD
+#define GATTS_CHAR_UUID_TEST_C      0xDD01
+#define GATTS_NUM_HANDLE_TEST_C     4
 
 #define GATTS_DEMO_CHAR_VAL_LEN_MAX 0x40
 #define PREPARE_BUF_MAX_SIZE        1024
@@ -319,6 +324,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 //        		 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
 //        		 ESP_LOGI(COEX_TAG, "ADV Data: ");
 //        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 //memcpy(app_tag_r.tag_addr, scan_result->scan_rst.bda,  6);
         		 memcpy(app_tag_r.payload_buff,scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
         		 app_tag_r.tag_detected = true;
 
@@ -656,6 +662,7 @@ static void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, 
     prepare_write_env->prepare_len = 0;
 }
 
+/* GPS Profile handling */
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
 	server_handle_gps.app_gatt_if =gatts_if;
 	server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
@@ -839,6 +846,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     }
 }
 
+/* tag profile */
 static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
 	server_handle_tag.app_gatt_if =gatts_if;
 	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
@@ -1059,21 +1067,22 @@ void app_main(void)
     //init_gps();
     init_gpios();
     //gps_init();
-    sd_handle.busy = false;
+    //sd_handle.busy = false;
     sd_handle.mounted = false;
-    sdcard_init();
+    //sdcard_init();
 
     //Queues and Mutexes
     /* Create the Debug queue and Mutex */
     xTagDataQueue = xQueueCreate( 2, sizeof(tag_queue_msg));
     xTagDataQueueMutex = xSemaphoreCreateMutex();
     xSDMutex =  xSemaphoreCreateMutex();
+    xFileMutex  =  xSemaphoreCreateMutex();
     //GPS Queue
     xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg));
     xGPSQueueMutex = xSemaphoreCreateMutex();
     //Task creations
     //start gpio task
-    if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL) & (xSDMutex!=NULL))
+    if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL) & (xSDMutex!=NULL) & (xFileMutex != NULL))
     {
     	//xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
     	//Init task to init everything and then delete itself
@@ -1085,7 +1094,9 @@ void app_main(void)
     	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
     	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
     	//Task to write to SD Card
-    	xTaskCreate(sdcard_Task, "sdcard_task", 2048, NULL, 10, NULL);
+    	xTaskCreate(gpslogger_Task, "gpsLogger_task", 2048, NULL, 10, NULL);
+    	xTaskCreate(taglogger_Task, "TagLogger_task", 2048, NULL, 10, NULL);
+
     	//Task to initiate Sleep
     	//Debug Task
     	//xTaskCreate(prvDebug_Task, "Debug Task", 2048, NULL, 10, &xDebug_Handle);

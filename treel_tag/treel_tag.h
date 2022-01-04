@@ -42,6 +42,7 @@ typedef struct {
 typedef struct
 {
 	uint8_t	tag_type;		/* 0x01 Front , 0x02 Rear*/
+	esp_bd_addr_t tag_addr;
 	uint16_t tag_temperature;
 	uint16_t tag_pressure;
 	uint8_t tag_battery;

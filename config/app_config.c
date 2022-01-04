@@ -29,7 +29,7 @@ static const char *INIT_TAG = "INIT";
 char ptrTaskList[250];
 extern m_gps_handle gps_handle;
 extern sdcard_handle sd_handle;
-extern ble_server_handle server_handle;
+//extern ble_server_handle server_handle;
 extern ble_client_handle client_handle;
 extern file_handle gps_file_handle;
 extern file_handle f_tag_file_handle;
@@ -71,10 +71,10 @@ void init_handles(void)
 	gps_handle.valid_data = false;
 
 
-	server_handle.busy = false;
-	server_handle.connected = false;
-	server_handle.notify_enabled = false;
-	server_handle.current_file = NO_CURR_FILE;
+//	server_handle.busy = false;
+//	server_handle.connected = false;
+//	server_handle.notify_enabled = false;
+//	server_handle.current_file = NO_CURR_FILE;
 
 	client_handle.scan_complete = false;
 
