@@ -58,7 +58,9 @@ void ble_client_task(void* pvParams)
 					msg_1.tag_pressure = app_tag_r.tag_pressure;
 					msg_1.tag_battery = app_tag_r.tag_battery;
 					//Send to Queue
+					xSemaphoreTake(xTagDataQueueMutex, portMAX_DELAY);
 					xQueueSendToBack(xTagDataQueue, &msg_1, ( TickType_t ) 20 );
+					xSemaphoreGive( xTagDataQueueMutex );
 				}
 			}
 			app_tag_r.tag_detected = false;
@@ -76,7 +78,9 @@ void ble_client_task(void* pvParams)
 					msg_1.tag_pressure = app_tag_f.tag_pressure;
 					msg_1.tag_battery = app_tag_f.tag_battery;
 					//Send to Queue
+					xSemaphoreTake(xTagDataQueueMutex, portMAX_DELAY);
 					xQueueSendToBack(xTagDataQueue, &msg_1, ( TickType_t ) 20 );
+					xSemaphoreGive( xTagDataQueueMutex );
 				}
 			}
 			app_tag_f.tag_detected = false;

@@ -12,6 +12,8 @@
 #include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "gps_task.h"
 #include "ble_tasks.h"
@@ -19,7 +21,8 @@
 #include "app_config.h"
 #include "esp_gatts_api.h"
 
-ble_server_handle server_handle;
+ble_server_handle server_handle_gps;
+ble_server_handle server_handle_tag;
 char gps_line[GPS_BUFFER_LEN + 1];
 char tag_line[TAG_BUFFER_LEN + 1];
 static const char *SERVER_TAG = "BLE_SERVER";
@@ -29,6 +32,8 @@ extern file_handle gps_file_handle;
 extern file_handle f_tag_file_handle;
 extern file_handle r_tag_file_handle;
 extern sdcard_handle sd_handle;
+extern SemaphoreHandle_t xSDMutex;
+
 
 void ble_server_task(void *pvParams)
 {
@@ -36,37 +41,109 @@ void ble_server_task(void *pvParams)
 	{
 		/* BLE Server Task -> After some interval it should connect with BLE Client (Phone) and synchronize the Data */
 		/* Each 10 mins should sync data with Mobile App */
-		if(server_handle.connected == true)
+		if(server_handle_gps.connected == true)
 		{
-			//A device is connected
-			if(server_handle.notify_enabled == true )
+			//GPS Handling
+			if(server_handle_gps.notify_enabled == true )
 			{
 				if(sd_handle.mounted == true && sd_handle.busy == false)
 				{
-					//Switch case for File Handling , Need to sequentially handle this stuff
-					gps_file_handling();
-					//f_tag_file_handling()
-					//r_tag_file_handling()
+					if(gps_file_handling() != app_success)
+					{
+						//Error
+						delete_file("GPS.txt");
+						gps_file_handle.if_exist = false;
 
+					}
 				}
-				else
-				{
-					ESP_LOGI(SERVER_TAG,"SD CARD not mounted or Busy");
-				}
-
-
-			}
-			else
-			{
-				ESP_LOGI(SERVER_TAG,"Notify Disabled");
 			}
 		}
-		else
+		if(server_handle_tag.connected == true)
 		{
-			//No device is connected
-			ESP_LOGI(SERVER_TAG,"No Device Connected");
+			if(server_handle_tag.notify_enabled == true )
+			{
+				if(sd_handle.mounted == true && sd_handle.busy == false)
+				{
+					//Two Services within one for Front and One For Rear
 
+				}
+			}
 		}
+//			//A device is connected
+//			if(server_handle.notify_enabled == true )
+//			{
+//				if(sd_handle.mounted == true && sd_handle.busy == false)
+//				{
+//					switch(server_handle.current_file)
+//					{
+//					case GPS_CURR_FILE:
+//						if(gps_file_handling() != app_success)
+//						{
+//							//Error
+//							delete_file("GPS.txt");
+//							gps_file_handle.if_exist = false;
+//
+//						}
+//						break;
+//					case FRONT_CURR_FILE:
+//						if(f_tag_file_handling() != app_success)
+//						{
+//							//Error
+//							delete_file("front.txt");
+//							f_tag_file_handle.if_exist = false;
+//						}
+//						break;
+//					case REAR_CURR_FILE:
+//						if(r_tag_file_handling() != app_success)
+//						{
+//							//Error
+//							delete_file("rear.txt");
+//							r_tag_file_handle.if_exist = false;
+//						}
+//						break;
+//					case NO_CURR_FILE:
+//						ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
+//						if(gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
+//						{
+//							server_handle.current_file = GPS_CURR_FILE;
+//						}
+//						else if (f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
+//						{
+//							server_handle.current_file = FRONT_CURR_FILE;
+//						}
+//						else if (r_tag_file_handle.file_read != true && r_tag_file_handle.if_exist == true)
+//						{
+//							server_handle.current_file = REAR_CURR_FILE;
+//						}
+//						break;
+//					default:
+//						break;
+//
+//					}
+//					//Switch case for File Handling , Need to sequentially handle this stuff
+//
+//					//f_tag_file_handling()
+//					//r_tag_file_handling()
+//
+//				}
+//				else
+//				{
+//					ESP_LOGI(SERVER_TAG,"SD CARD not mounted or Busy");
+//				}
+//
+//
+//			}
+//			else
+//			{
+//				ESP_LOGI(SERVER_TAG,"Notify Disabled");
+//			}
+//		}
+//		else
+//		{
+//			//No device is connected
+//			ESP_LOGI(SERVER_TAG,"No Device Connected");
+//
+//		}
 
 		vTaskDelay(pdMS_TO_TICKS(10000));
 	}
@@ -74,62 +151,92 @@ void ble_server_task(void *pvParams)
 
 app_ret gps_file_handling()
 {
-	if(gps_file_handle.if_exist == true)
+	xSemaphoreTake(xSDMutex, portMAX_DELAY);
+	if(gps_file_handle.if_exist == true && gps_file_handle.busy != true)
 	{
+		gps_file_handle.busy = true;
 		//Read the total line from SD Card
 		gps_file_handle.total_lines = 0;
 		get_no_lines_to_tx("GPS.txt", &gps_file_handle);
 		ESP_LOGI(SERVER_TAG, "Total lines: %d", gps_file_handle.total_lines);
 		while(gps_file_handle.file_read != true)
 		{
-			read_line("GPS.txt",&gps_file_handle,gps_line,sizeof(gps_line));
-			if(gps_file_handle.valid_data == true)
+			if(read_line("GPS.txt",&gps_file_handle,gps_line,sizeof(gps_line)) == app_success)
 			{
-				ESP_LOGI(SERVER_TAG,"Data To be uploaded: %s",gps_line);
-				memcpy(server_handle.notify_data, gps_line, 38);
-				//Write to Client
-				esp_ble_gatts_send_indicate(server_handle.app_gatt_if, server_handle.conn_id, server_handle.char_handle,
-						sizeof(server_handle.notify_data), server_handle.notify_data, false);
-				gps_file_handle.valid_data = false;
+				if(gps_file_handle.valid_data == true)
+				{
+					ESP_LOGI(SERVER_TAG,"GPS Data To be uploaded: %s",gps_line);
+					memcpy(server_handle_gps.notify_data, gps_line, 38);
+					//Write to Client
+					esp_ble_gatts_send_indicate(server_handle.app_gatt_if, server_handle.conn_id, server_handle.char_handle,
+							sizeof(server_handle.notify_data), server_handle.notify_data, false);
+					gps_file_handle.valid_data = false;
+				}
 			}
+			else
+			{
+				ESP_LOGI(SERVER_TAG,"GPS Data Read Error");
+				server_handle.current_file = NO_CURR_FILE;
+				gps_file_handle.busy = false;
+				xSemaphoreGive( xSDMutex );
+				return app_error;
+			}
+
 		}
 		if(gps_file_handle.file_read == true)
 		{
 			//Delete the File
 			delete_file("GPS.txt");
 			gps_file_handle.if_exist = false;
+			server_handle.current_file = NO_CURR_FILE;
 			//gps_file_handle.file_read = false;
 		}
 
 	}
 	else
 	{
-		ESP_LOGI(SERVER_TAG,"GPS Log File doesnot exists");
+		ESP_LOGI(SERVER_TAG,"GPS Log File doesnot exists or File in Use");
+		server_handle.current_file = NO_CURR_FILE;		//Then handle next File
+		gps_file_handle.busy = false;
+		xSemaphoreGive( xSDMutex );
 		return app_error;
 	}
-
+	gps_file_handle.busy = false;
+	xSemaphoreGive( xSDMutex );
 	return app_success;
 }
 
 app_ret f_tag_file_handling()
 {
-	if(f_tag_file_handle.if_exist == true)
+	xSemaphoreTake(xSDMutex, portMAX_DELAY);
+	if(f_tag_file_handle.if_exist == true && f_tag_file_handle.busy != true)
 	{
+		f_tag_file_handle.busy = true;
 		//Read the total line from SD Card
 		f_tag_file_handle.total_lines = 0;
-		get_no_lines_to_tx("GPS.txt", &f_tag_file_handle);
+		get_no_lines_to_tx("front.txt", &f_tag_file_handle);
 		ESP_LOGI(SERVER_TAG, "Total lines: %d", f_tag_file_handle.total_lines);
 		while(f_tag_file_handle.file_read != true)
 		{
-			read_line("front.txt",&f_tag_file_handle,tag_line,sizeof(tag_line));
-			if(f_tag_file_handle.valid_data == true)
+			if(read_line("front.txt",&f_tag_file_handle,tag_line,sizeof(tag_line)) == app_success)
 			{
-				ESP_LOGI(SERVER_TAG,"Data To be uploaded: %s",f_tag_file_handle);
-				memcpy(server_handle.notify_data, tag_line, 15);
-				//Write to Client
-				esp_ble_gatts_send_indicate(server_handle.app_gatt_if, server_handle.conn_id, server_handle.char_handle,
-						sizeof(server_handle.notify_data), server_handle.notify_data, false);
-				f_tag_file_handle.valid_data = false;
+				if(f_tag_file_handle.valid_data == true)
+				{
+					ESP_LOGI(SERVER_TAG,"Front Data To be uploaded: %s",tag_line);
+					memcpy(server_handle.notify_data, tag_line, 15);
+					//Write to Client
+					esp_ble_gatts_send_indicate(server_handle.app_gatt_if, server_handle.conn_id, server_handle.char_handle,
+							sizeof(server_handle.notify_data), server_handle.notify_data, false);
+					f_tag_file_handle.valid_data = false;
+				}
+			}
+			else
+			{
+				ESP_LOGI(SERVER_TAG,"Front Data Read Error");
+				server_handle.current_file = NO_CURR_FILE;
+				f_tag_file_handle.busy = false;
+				xSemaphoreGive( xSDMutex );
+				return app_error;
 			}
 		}
 		if(f_tag_file_handle.file_read == true)
@@ -137,6 +244,7 @@ app_ret f_tag_file_handling()
 			//Delete the File
 			delete_file("front.txt");
 			f_tag_file_handle.if_exist = false;
+			server_handle.current_file = NO_CURR_FILE;
 			//gps_file_handle.file_read = false;
 		}
 
@@ -144,31 +252,47 @@ app_ret f_tag_file_handling()
 	else
 	{
 		ESP_LOGI(SERVER_TAG,"Front Log File doesnot exists");
+		server_handle.current_file = NO_CURR_FILE;		//Then handle next File
+		f_tag_file_handle.busy = false;
+		xSemaphoreGive( xSDMutex );
 		return app_error;
 	}
-
+	f_tag_file_handle.busy = false;
+	xSemaphoreGive( xSDMutex );
 	return app_success;
 
 }
 app_ret r_tag_file_handling()
 {
-	if(f_tag_file_handle.if_exist == true)
+	xSemaphoreTake(xSDMutex, portMAX_DELAY);
+	if(r_tag_file_handle.if_exist == true && r_tag_file_handle.busy != true)
 	{
+		r_tag_file_handle.busy = true;
 		//Read the total line from SD Card
 		r_tag_file_handle.total_lines = 0;
-		get_no_lines_to_tx("GPS.txt", &r_tag_file_handle);
+		get_no_lines_to_tx("rear.txt", &r_tag_file_handle);
 		ESP_LOGI(SERVER_TAG, "Total lines: %d", r_tag_file_handle.total_lines);
 		while(r_tag_file_handle.file_read != true)
 		{
-			read_line("front.txt",&r_tag_file_handle,tag_line,sizeof(tag_line));
-			if(r_tag_file_handle.valid_data == true)
+			if(read_line("rear.txt",&r_tag_file_handle,tag_line,sizeof(tag_line)) == app_success)
 			{
-				ESP_LOGI(SERVER_TAG,"Data To be uploaded: %s",r_tag_file_handle);
-				memcpy(server_handle.notify_data, tag_line, 15);
-				//Write to Client
-				esp_ble_gatts_send_indicate(server_handle.app_gatt_if, server_handle.conn_id, server_handle.char_handle,
-						sizeof(server_handle.notify_data), server_handle.notify_data, false);
-				r_tag_file_handle.valid_data = false;
+				if(r_tag_file_handle.valid_data == true)
+				{
+					ESP_LOGI(SERVER_TAG,"Rear Data To be uploaded: %s",tag_line);
+					memcpy(server_handle.notify_data, tag_line, 15);
+					//Write to Client
+					esp_ble_gatts_send_indicate(server_handle.app_gatt_if, server_handle.conn_id, server_handle.char_handle,
+							sizeof(server_handle.notify_data), server_handle.notify_data, false);
+					r_tag_file_handle.valid_data = false;
+				}
+			}
+			else
+			{
+				ESP_LOGI(SERVER_TAG,"Rear Data Read Error");
+				server_handle.current_file = NO_CURR_FILE;
+				r_tag_file_handle.busy = false;
+				xSemaphoreGive( xSDMutex );
+				return app_error;
 			}
 		}
 		if(r_tag_file_handle.file_read == true)
@@ -176,6 +300,7 @@ app_ret r_tag_file_handling()
 			//Delete the File
 			delete_file("rear.txt");
 			r_tag_file_handle.if_exist = false;
+			server_handle.current_file = NO_CURR_FILE;
 			//gps_file_handle.file_read = false;
 		}
 
@@ -183,9 +308,13 @@ app_ret r_tag_file_handling()
 	else
 	{
 		ESP_LOGI(SERVER_TAG,"Rear Log File doesnot exists");
+		server_handle.current_file = NO_CURR_FILE;
+		r_tag_file_handle.busy = false;
+		xSemaphoreGive( xSDMutex );
 		return app_error;
 	}
-
+	r_tag_file_handle.busy = false;
+	xSemaphoreGive( xSDMutex );
 	return app_success;
 
 }

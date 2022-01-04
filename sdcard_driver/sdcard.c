@@ -50,10 +50,16 @@ file_handle gps_file_handle;
 file_handle f_tag_file_handle;
 file_handle r_tag_file_handle;
 
+//RTOS
+SemaphoreHandle_t xSDMutex;
+
 
 //externs
 extern QueueHandle_t xGPSQueue;
 extern QueueHandle_t xTagDataQueue;
+extern SemaphoreHandle_t xTagDataQueueMutex;
+extern SemaphoreHandle_t xSDMutex;
+extern SemaphoreHandle_t xGPSQueueMutex;
 extern m_gps_handle gps_handle;
 void sdcard_Task(void* pvParams)
 {
@@ -65,55 +71,83 @@ void sdcard_Task(void* pvParams)
 	{
 		if(sd_handle.mounted == true && gps_handle.init == true)
 		{
-			/* Get Data from GPS Queue */
-			if(xQueueReceive(xGPSQueue, &gps, ( TickType_t ) 20 ) == pdPASS)
-			{
-				ESP_LOGI(SD_TAG,"\n%d/%d/%d %2d:%02d:%02d\tlatitude   = %.05f°N\tlongitude = %.05f°E\r\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
-				//Write to SD Card
-				if(sd_handle.mounted == true && sd_handle.busy == false)
-				{
-					sprintf(sd_buffer,"%02d/%02d/%d %02d:%02d:%02d\t%.05f\t%.05f\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
-					write_data_to_file("GPS.txt",sd_buffer);
-					gps_file_handle.if_exist = true;
-					gps_file_handle.file_read = false;
 
-				}
-				else
+
+			/* Get Data from GPS Queue */
+			if(gps_file_handle.busy != true)
+			{
+				xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
+				if(xQueueReceive(xGPSQueue, &gps, ( TickType_t ) 20 ) == pdPASS)
 				{
-					//SD Card busy
-					ESP_LOGE(SD_TAG,"Error SD Card not mounted or Busy");
+					ESP_LOGI(SD_TAG,"\n%d/%d/%d %2d:%02d:%02d\tlatitude   = %.05f°N\tlongitude = %.05f°E\r\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
+					//Write to SD Card
+					if(sd_handle.mounted == true && sd_handle.busy == false)
+					{
+						sprintf(sd_buffer,"%02d/%02d/%d %02d:%02d:%02d\t%.05f\t%.05f\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
+						xSemaphoreTake(xSDMutex, portMAX_DELAY);
+						write_data_to_file("GPS.txt",sd_buffer);
+						xSemaphoreGive( xSDMutex );
+						gps_file_handle.if_exist = true;
+						gps_file_handle.file_read = false;
+
+					}
+					else
+					{
+						//SD Card busy
+						ESP_LOGE(SD_TAG,"Error SD Card not mounted or Busy");
+					}
 				}
+				xSemaphoreGive( xGPSQueueMutex );
 			}
+			else
+			{
+				ESP_LOGE(SD_TAG,"GPS File Busy");
+			}
+
 
 		}
 		if(sd_handle.mounted == true)
 		{
-			if(xQueueReceive(xTagDataQueue, &tag, ( TickType_t ) 20 ) == pdPASS)
+			if(f_tag_file_handle.busy != true || r_tag_file_handle.busy != true)
 			{
-				ESP_LOGI(SD_TAG, "Temperature: %d\tPressure: %d\tTag Batt: %d", tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
-				//Write to SD Card
-				if(sd_handle.mounted == true && sd_handle.busy == false && tag.tag_type == FRONT_TAG_TYPE)
+				xSemaphoreTake(xTagDataQueueMutex, portMAX_DELAY);
+				if(xQueueReceive(xTagDataQueue, &tag, ( TickType_t ) 20 ) == pdPASS)
 				{
-					sprintf(sd_buffer,"%04d\t%05d\t%03d\n",tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
-					write_data_to_file("front.txt",sd_buffer);
-					f_tag_file_handle.if_exist = true;
-					f_tag_file_handle.file_read = false;
+					ESP_LOGI(SD_TAG, "Temperature: %d\tPressure: %d\tTag Batt: %d", tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+					//Write to SD Card
+					if(sd_handle.mounted == true && sd_handle.busy == false && tag.tag_type == FRONT_TAG_TYPE && f_tag_file_handle.busy != true)
+					{
+						f_tag_file_handle.busy = true;
+						sprintf(sd_buffer,"%04d\t%05d\t%03d\n",tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+						xSemaphoreTake(xSDMutex, portMAX_DELAY);
+						write_data_to_file("front.txt",sd_buffer);
+						xSemaphoreGive( xSDMutex );
+						f_tag_file_handle.if_exist = true;
+						f_tag_file_handle.file_read = false;
+						f_tag_file_handle.busy = false;
 
-				}
-				else if(sd_handle.mounted == true && sd_handle.busy == false && tag.tag_type == REAR_TAG_TYPE)
-				{
-					sprintf(sd_buffer,"%04d\t%05d\t%03d\n",tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
-					write_data_to_file("rear.txt",sd_buffer);
-					r_tag_file_handle.if_exist = true;
-					r_tag_file_handle.file_read = false;
+					}
+					else if(sd_handle.mounted == true && sd_handle.busy == false && tag.tag_type == REAR_TAG_TYPE && r_tag_file_handle.busy != true)
+					{
+						r_tag_file_handle.busy = true;
+						sprintf(sd_buffer,"%04d\t%05d\t%03d\n",tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+						xSemaphoreTake(xSDMutex, portMAX_DELAY);
+						write_data_to_file("rear.txt",sd_buffer);
+						xSemaphoreGive( xSDMutex );
+						r_tag_file_handle.if_exist = true;
+						r_tag_file_handle.file_read = false;
+						r_tag_file_handle.busy = true;
 
+					}
+					else
+					{
+						//SD Card busy
+						ESP_LOGE(SD_TAG,"Error SD Card not mounted or Busy");
+					}
 				}
-				else
-				{
-					//SD Card busy
-					ESP_LOGE(SD_TAG,"Error SD Card not mounted or Busy");
-				}
+				xSemaphoreGive( xTagDataQueueMutex );
 			}
+
 
 		}
 
@@ -221,18 +255,22 @@ app_ret create_file(char* filename)
 		FILE *f = fopen(file, "w");
 		if (f == NULL) {
 			ESP_LOGE(SD_TAG, "Failed to open file for writing");
+			free(file);
 			sd_handle.busy = false;
 			return app_error;
 		}
 		fclose(f);
+		//free(file);
 		//SD busy flag
 		sd_handle.busy = false;
 	}
 	else
 	{
+		free(file);
 		return app_error;
 
 	}
+	free(file);
 	return app_success;
 #endif
 #if 0
@@ -277,9 +315,10 @@ app_ret delete_file(char* filename)
 	}
 	else
 	{
+		free(file);
 		return app_error;
 	}
-
+	free(file);
 	return app_success;
 }
 
@@ -312,9 +351,10 @@ app_ret write_data_to_file(char* filename, char* data)
 	}
 	else
 	{
+		free(file);
 		return app_error;
 	}
-
+	free(file);
 	return app_success;
 
 }
@@ -344,9 +384,10 @@ app_ret read_data_from_file(char* filename, char* buffer, size_t data_size)
 	}
 	else
 	{
+		free(file);
 		return app_error;
 	}
-
+	free(file);
 	return app_success;
 
 }
@@ -365,6 +406,7 @@ app_ret get_no_lines_to_tx(char* filename, file_handle* file_to_handle)
 		FILE *f = fopen(file, "r");
 		if (f == NULL) {
 			ESP_LOGE(SD_TAG, "Failed to open file for reading");
+			free(file);
 			sd_handle.busy = false;
 			return app_error;
 		}
@@ -382,6 +424,7 @@ app_ret get_no_lines_to_tx(char* filename, file_handle* file_to_handle)
 			}
 		}while(1);
 	}
+	free(file);
 	sd_handle.busy = false;
 	return app_success;
 }
@@ -402,6 +445,7 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 		FILE *f = fopen(file, "r");
 		if (f == NULL) {
 			ESP_LOGE(SD_TAG, "Failed to open file for reading");
+			free(file);
 			sd_handle.busy = false;
 			return app_error;
 		}
@@ -427,6 +471,7 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 				ESP_LOGI(SD_TAG, "GPS Successfully copied the Buffer");
 				file_to_handle->valid_data = true;
 				fclose(f);
+				free(file);
 				sd_handle.busy = false;
 				return app_success;
 			}
@@ -435,8 +480,9 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 				fclose(f);
 				//Delete the File
 				//delete_file(filename);
-				ESP_LOGI(SD_TAG, "Successfully copied the Buffer");
+				ESP_LOGI(SD_TAG, "Successfully copied the Buffer & EOF");
 				file_to_handle->file_read = true;
+				free(file);
 				sd_handle.busy = false;
 				return app_success;
 
@@ -445,6 +491,9 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 			{
 				ESP_LOGE(SD_TAG, "Corrupt GPS File!");
 				fclose(f);
+				//delete_file(filename);
+				file_to_handle->file_read = true;
+				free(file);
 				sd_handle.busy = false;
 				return app_error;
 			}
@@ -469,6 +518,7 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 				ESP_LOGI(SD_TAG, " TAG Successfully copied the Buffer");
 				file_to_handle->valid_data = true;
 				fclose(f);
+				free(file);
 				sd_handle.busy = false;
 				return app_success;
 			}
@@ -477,8 +527,9 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 				fclose(f);
 				//Delete the File
 				//delete_file(filename);
-				ESP_LOGI(SD_TAG, "TAG successfully copied the Buffer");
+				ESP_LOGI(SD_TAG, "TAG successfully copied the Buffer & EOF");
 				file_to_handle->file_read = true;
+				free(file);
 				sd_handle.busy = false;
 				return app_success;
 
@@ -487,6 +538,9 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 			{
 				ESP_LOGE(SD_TAG, "Corrupt TAG File!");
 				fclose(f);
+				free(file);
+				//delete_file(filename);
+				file_to_handle->file_read = true;
 				sd_handle.busy = false;
 				return app_error;
 			}
@@ -496,7 +550,7 @@ app_ret read_line(char* filename,file_handle* file_to_handle, char* buffer, size
 		}
 
 	}
-
+	free(file);
 	return app_error;
 }
 
@@ -527,6 +581,8 @@ app_ret rename_file(char* file_to_rename, char* rename_file)
 		if (rename(file_s, file) != 0) {
 			ESP_LOGE(SD_TAG, "Rename failed");
 			sd_handle.busy = false;
+			free(file);
+			free(file_s);
 			return app_error;
 		}
 		//SD busy flag
@@ -534,9 +590,12 @@ app_ret rename_file(char* file_to_rename, char* rename_file)
 	}
 	else
 	{
+		free(file);
+		free(file_s);
 		return app_error;
 	}
-
+	free(file);
+	free(file_s);
 	return app_success;
 
 }
@@ -554,11 +613,13 @@ app_ret if_exists(char* filename)
 		if((f = fopen(file,"r")))
 		{
 			fclose(f);
+			free(file);
 			sd_handle.busy = false;
 			return app_success;
 		}
 		sd_handle.busy = false;
 	}
+	free(file);
 	return app_error;
 }
 app_ret sdcard_deinit()

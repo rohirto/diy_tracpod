@@ -74,6 +74,7 @@ void init_handles(void)
 	server_handle.busy = false;
 	server_handle.connected = false;
 	server_handle.notify_enabled = false;
+	server_handle.current_file = NO_CURR_FILE;
 
 	client_handle.scan_complete = false;
 
@@ -81,19 +82,23 @@ void init_handles(void)
 	gps_file_handle.total_lines = 0;
 	gps_file_handle.file_type = GPS_FILE_TYPE;
 	gps_file_handle.valid_data = false;
+	gps_file_handle.busy = false;
 
 	if(sd_handle.mounted == true)
 	{
+		gps_file_handle.busy = true;
 		if(if_exists("GPS.txt") == app_success)
 		{
 			gps_file_handle.if_exist = true;
 			ESP_LOGI(INIT_TAG,"GPS File Exits!");
+			//server_handle.current_file = GPS_CURR_FILE;
 		}
 		else
 		{
 			gps_file_handle.if_exist = false;
 			ESP_LOGI(INIT_TAG,"GPS File Does not Exits!");
 		}
+		gps_file_handle.busy = false;
 	}
 	else
 	{
@@ -103,9 +108,10 @@ void init_handles(void)
 	f_tag_file_handle.total_lines = 0;
 	f_tag_file_handle.file_type = TAG_FILE_TYPE;
 	f_tag_file_handle.valid_data = false;
-
+	f_tag_file_handle.busy = false;
 	if(sd_handle.mounted == true)
 	{
+		f_tag_file_handle.busy = true;
 		if(if_exists("front.txt") == app_success)
 		{
 			f_tag_file_handle.if_exist = true;
@@ -116,6 +122,7 @@ void init_handles(void)
 			f_tag_file_handle.if_exist = false;
 			ESP_LOGI(INIT_TAG,"Front Tag File Does not Exits!");
 		}
+		f_tag_file_handle.busy = false;
 	}
 	else
 	{
@@ -125,9 +132,10 @@ void init_handles(void)
 	r_tag_file_handle.total_lines = 0;
 	r_tag_file_handle.file_type = TAG_FILE_TYPE;
 	r_tag_file_handle.valid_data = false;
-
+	r_tag_file_handle.busy = false;
 	if(sd_handle.mounted == true)
 	{
+		r_tag_file_handle.busy = true;
 		if(if_exists("rear.txt") == app_success)
 		{
 			r_tag_file_handle.if_exist = true;
@@ -138,6 +146,7 @@ void init_handles(void)
 			r_tag_file_handle.if_exist = false;
 			ESP_LOGI(INIT_TAG,"Rear Tag File Does not Exits!");
 		}
+		r_tag_file_handle.busy = false;
 	}
 	else
 	{

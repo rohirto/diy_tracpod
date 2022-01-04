@@ -32,7 +32,10 @@
 #define APP_BLE_SCAN_TIME		10		//in secs
 
 #define TAG_BUFFER_LEN			15
-
+#define GPS_CURR_FILE			0x01
+#define FRONT_CURR_FILE			0x02
+#define REAR_CURR_FILE			0x03
+#define NO_CURR_FILE			0x04
 
 
 //Structs
@@ -46,6 +49,7 @@ typedef struct
 	uint16_t char_handle;
 	size_t data_size;
 	uint8_t notify_data[38];
+	uint8_t current_file;		/* 0x01 GPS File, 0x02 Front File, 0x03 Rear File, 0x04 No file */
 
 
 }ble_server_handle;
@@ -61,7 +65,7 @@ void ble_client_task(void*);
 void ble_server_task(void*);
 app_ret gps_file_handling();
 app_ret f_tag_file_handling();
-app_ret r_tag_file_handling()
+app_ret r_tag_file_handling();
 
 
 

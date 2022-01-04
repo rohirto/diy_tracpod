@@ -38,8 +38,10 @@ extern QueueHandle_t xTagDataQueue;
 extern QueueHandle_t xGPSQueue;
 TaskHandle_t xDebug_Handle;
 extern SemaphoreHandle_t xTagDataQueueMutex;
+extern SemaphoreHandle_t xSDMutex;
 extern SemaphoreHandle_t xGPSQueueMutex;
-extern ble_server_handle server_handle;
+extern ble_server_handle server_handle_gps;
+extern ble_server_handle server_handle_tag;
 extern ble_client_handle client_handle;
 extern sdcard_handle sd_handle;
 extern esp_bd_addr_t	tpms_r_tag_mac ;
@@ -655,6 +657,9 @@ static void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, 
 }
 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
+	server_handle_gps.app_gatt_if =gatts_if;
+	server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+	server_handle_gps.conn_id =  param->write.conn_id;
     switch (event) {
     case ESP_GATTS_REG_EVT:
         ESP_LOGI(COEX_TAG, "REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
@@ -720,10 +725,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                     if (a_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
                         ESP_LOGI(COEX_TAG, "notify enable\n");
                         /* Modify the hanlde */
-                        server_handle.notify_enabled = true;
-                        server_handle.app_gatt_if =gatts_if;
-                        server_handle.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
-                        server_handle.conn_id =  param->write.conn_id;
+                        server_handle_gps.notify_enabled = true;
+                        server_handle_gps.app_gatt_if =gatts_if;
+                        server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+                        server_handle_gps.conn_id =  param->write.conn_id;
                         uint8_t notify_data[15];
                         for (int i = 0; i < sizeof(notify_data); ++ i) {
                             notify_data[i] = i%0xff;
@@ -746,7 +751,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
                     ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
                     /* Modify the handle */
-                    server_handle.notify_enabled = false;
+                    server_handle_gps.notify_enabled = false;
                 } else {
                     ESP_LOGE(COEX_TAG, "unknown descr value\n");
                     esp_log_buffer_hex(COEX_TAG, param->write.value, param->write.len);
@@ -812,14 +817,15 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                  param->connect.remote_bda[3], param->connect.remote_bda[4], param->connect.remote_bda[5]);
         gatts_profile_tab[GATTS_PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
         /* Modify the handle */
-        server_handle.connected = true;
+        server_handle_gps.connected = true;
         break;
     }
     case ESP_GATTS_DISCONNECT_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x\n", param->disconnect.reason);
         esp_ble_gap_start_advertising(&adv_params);
         /* Modify the handle */
-        server_handle.connected = false;
+        server_handle_gps.connected = false;
+        server_handle_gps.notify_enabled = false;
         break;
     case ESP_GATTS_CONF_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d\n", param->conf.status, param->conf.handle);
@@ -834,6 +840,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 }
 
 static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
+	server_handle_tag.app_gatt_if =gatts_if;
+	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+	server_handle_tag.conn_id =  param->write.conn_id;
     switch (event) {
     case ESP_GATTS_REG_EVT:
         ESP_LOGI(COEX_TAG, "REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
@@ -867,7 +876,12 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 uint16_t descr_value= param->write.value[1]<<8 | param->write.value[0];
                 if (descr_value == NOTIFY_ENABLE) {
                     if (b_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
-                        ESP_LOGI(COEX_TAG, "notify enable\n");
+                    	ESP_LOGI(COEX_TAG, "notify enable\n");
+                    	/* Modify the hanlde */
+                    	server_handle_tag.notify_enabled = true;
+                    	server_handle_tag.app_gatt_if =gatts_if;
+                    	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+                    	server_handle_tag.conn_id =  param->write.conn_id;
                         uint8_t notify_data[15];
                         for (int i = 0; i < sizeof(notify_data); ++ i) {
                             notify_data[i] = i%0xff;
@@ -889,6 +903,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                     }
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
                     ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
+                    server_handle_tag.notify_enabled = false;
                 } else {
                     ESP_LOGE(COEX_TAG, "unknown value\n");
                 }
@@ -956,6 +971,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                  param->connect.remote_bda[0], param->connect.remote_bda[1], param->connect.remote_bda[2],
                  param->connect.remote_bda[3], param->connect.remote_bda[4], param->connect.remote_bda[5]);
                  gatts_profile_tab[GATTS_PROFILE_B_APP_ID].conn_id = param->connect.conn_id;
+                 server_handle_tag.connected = true;
         break;
     case ESP_GATTS_CONF_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_CONF_EVT status %d attr_handle %d\n", param->conf.status, param->conf.handle);
@@ -964,11 +980,18 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         }
     break;
     case ESP_GATTS_DISCONNECT_EVT:
+    	server_handle_tag.connected = false;
+    	server_handle_tag.notify_enabled = false;
+    	ESP_LOGI(COEX_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x\n", param->disconnect.reason);
+    	esp_ble_gap_start_advertising(&adv_params);
+    	break;
     case ESP_GATTS_OPEN_EVT:
     default:
         break;
     }
 }
+
+
 
 static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
@@ -1044,12 +1067,13 @@ void app_main(void)
     /* Create the Debug queue and Mutex */
     xTagDataQueue = xQueueCreate( 2, sizeof(tag_queue_msg));
     xTagDataQueueMutex = xSemaphoreCreateMutex();
+    xSDMutex =  xSemaphoreCreateMutex();
     //GPS Queue
     xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg));
     xGPSQueueMutex = xSemaphoreCreateMutex();
     //Task creations
     //start gpio task
-    if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL))
+    if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL) & (xSDMutex!=NULL))
     {
     	//xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
     	//Init task to init everything and then delete itself
@@ -1138,6 +1162,7 @@ void ble_coex_init()
 		ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
 		return;
 	}
+
 
 	// gattc regisrter
 	ret = esp_ble_gattc_register_callback(esp_gattc_cb);

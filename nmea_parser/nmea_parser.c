@@ -862,12 +862,12 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         	//ESP_LOGI(TAG,"Lat: %.02f",msg_1.lat);
         	//msg_1->valid = true;
         	/* Take the Mutex */
-        	//xSemaphoreTake(xGPSQueueMutex, ( TickType_t ) 10);
+        	xSemaphoreTake(xGPSQueueMutex, portMAX_DELAY);
         	xQueueSendToBack(xGPSQueue, &msg_1, ( TickType_t ) 20 );
 
         		//ESP_LOGE(TAG,"Queue Write Fail");
 
-        	//xSemaphoreGive( xGPSQueueMutex );
+        	xSemaphoreGive( xGPSQueueMutex );
 
         }
         else
