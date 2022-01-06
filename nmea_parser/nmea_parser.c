@@ -856,7 +856,7 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         	msg_1.date.month = gps->date.month;
         	msg_1.date.day = gps->date.day;
         	msg_1.tim.hour = ((gps->tim.hour) + 5)%24; // + TIME_ZONE)%24;
-        	msg_1.tim.minute = gps->tim.minute + 30;
+        	msg_1.tim.minute = (gps->tim.minute + 30)%60;
         	msg_1.tim.second = gps->tim.second;
         	msg_1.valid = true;
         	//ESP_LOGI(TAG,"Lat: %.02f",msg_1.lat);

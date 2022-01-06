@@ -85,9 +85,9 @@ void gpslogger_Task(void* pvParams)
 			{
 				ESP_LOGI(SD_TAG,"\n%d/%d/%d %2d:%02d:%02d\tlatitude   = %.05f°N\tlongitude = %.05f°E\r\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
 				//Write to SD Card
-				if(sd_handle.mounted == true)
+				if(1)
 				{
-					sprintf(sd_buffer,"%02d/%02d/%d %02d:%02d:%02d\t%.05f\t%.05f\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
+					sprintf(sd_buffer,"%02d/%02d/%d\t%02d:%02d:%02d\t%.05f\t%.05f\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
 					xSemaphoreTake(xSDMutex, portMAX_DELAY);
 					write_data_to_file("GPS.txt",sd_buffer);
 					xSemaphoreGive( xSDMutex );

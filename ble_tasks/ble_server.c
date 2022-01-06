@@ -36,89 +36,116 @@ extern SemaphoreHandle_t xSDMutex;
 extern SemaphoreHandle_t xFileMutex;
 
 
-void ble_server_task(void *pvParams)
+void ble_server_gpstask(void *pvParams)
 {
 	for(;;)
 	{
 		if(server_handle_gps.connected == true)
 		{
-			/* BLE Server Task -> After some interval it should connect with BLE Client (Phone) and synchronize the Data */
-			/* Each 10 mins should sync data with Mobile App */
-			switch(curr_file)
+			if(server_handle_gps.notify_enabled == true )
 			{
-			case NO_CURR_FILE:
-				ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
-				if(gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
+				if(1)
 				{
-					curr_file = GPS_CURR_FILE;
-				}
-				else if (f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
-				{
-					curr_file = FRONT_CURR_FILE;
-				}
-
-				break;
-			case GPS_CURR_FILE:
-
-				//GPS Handling
-				if(server_handle_gps.notify_enabled == true )
-				{
-					if(1)
+					if(gps_file_handling() != app_success)
 					{
-						if(gps_file_handling() != app_success)
-						{
-							//Error
-							delete_file("GPS.txt");
-							gps_file_handle.if_exist = false;
-							curr_file = NO_CURR_FILE;
+						//Error
+						delete_file("GPS.txt");
+						gps_file_handle.if_exist = false;
+						curr_file = NO_CURR_FILE;
 
-						}
-						else
-						{
-							curr_file = NO_CURR_FILE;
-						}
+					}
+					else
+					{
+						curr_file = NO_CURR_FILE;
 					}
 				}
-				else
-				{
-					ESP_LOGI(SERVER_TAG,"Notify Disabled");
-				}
-
-				break;
-			case FRONT_CURR_FILE:
-
-				if(server_handle_tag.notify_enabled == true )
-				{
-					if(1 )
-					{
-						if(f_tag_file_handling() != app_success)
-						{
-							//Error
-							delete_file("tag.txt");
-							f_tag_file_handle.if_exist = false;
-							curr_file = NO_CURR_FILE;
-
-						}
-						else
-						{
-							curr_file = NO_CURR_FILE;
-						}
-					}
-				}
-				else
-				{
-					ESP_LOGI(SERVER_TAG,"Notify Disabled");
-				}
-
-				break;
+			}
+			else
+			{
+				ESP_LOGI(SERVER_TAG,"GPS Notify Disabled");
 			}
 		}
 		else
 		{
-			//No device is connected
-			ESP_LOGI(SERVER_TAG,"No Device Connected");
-
+			ESP_LOGI(SERVER_TAG,"GPS No Device Connected");
 		}
+//			/* BLE Server Task -> After some interval it should connect with BLE Client (Phone) and synchronize the Data */
+//			/* Each 10 mins should sync data with Mobile App */
+//			switch(curr_file)
+//			{
+//			case NO_CURR_FILE:
+//				ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
+//				if(f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
+//				{
+//					curr_file =  FRONT_CURR_FILE;
+//				}
+//				if (gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
+//				{
+//					curr_file = GPS_CURR_FILE;
+//				}
+//
+//				break;
+//			case GPS_CURR_FILE:
+//
+//				//GPS Handling
+//				if(server_handle_gps.notify_enabled == true )
+//				{
+//					if(1)
+//					{
+//						if(gps_file_handling() != app_success)
+//						{
+//							//Error
+//							delete_file("GPS.txt");
+//							gps_file_handle.if_exist = false;
+//							curr_file = NO_CURR_FILE;
+//
+//						}
+//						else
+//						{
+//							curr_file = NO_CURR_FILE;
+//						}
+//					}
+//				}
+//				else
+//				{
+//					ESP_LOGI(SERVER_TAG,"Notify Disabled");
+//				}
+//
+//				break;
+//			case FRONT_CURR_FILE:
+//
+//				if(server_handle_tag.notify_enabled == true )
+//				{
+//					if(1 )
+//					{
+//						if(f_tag_file_handling() != app_success)
+//						{
+//							//Error
+//							delete_file("tag.txt");
+//							f_tag_file_handle.if_exist = false;
+//							curr_file = NO_CURR_FILE;
+//
+//						}
+//						else
+//						{
+//							curr_file = NO_CURR_FILE;
+//						}
+//					}
+//				}
+//				else
+//				{
+//					ESP_LOGI(SERVER_TAG,"Notify Disabled");
+//				}
+//
+//				break;
+//			}
+//		}
+//		else
+//		{
+//			//No device is connected
+//			ESP_LOGI(SERVER_TAG,"No Device Connected");
+//
+//		}
 
 
 		//			//A device is connected
@@ -197,6 +224,44 @@ void ble_server_task(void *pvParams)
 		//
 		//		}
 
+		vTaskDelay(pdMS_TO_TICKS(10000));
+	}
+}
+
+void ble_server_tagtask(void* pvParams)
+{
+	for(;;)
+	{
+		if(server_handle_tag.connected == true)
+		{
+			if(server_handle_tag.notify_enabled == true )
+			{
+				if(1 )
+				{
+					if(f_tag_file_handling() != app_success)
+					{
+						//Error
+						delete_file("tag.txt");
+						f_tag_file_handle.if_exist = false;
+						//curr_file = NO_CURR_FILE;
+
+					}
+					else
+					{
+						//curr_file = NO_CURR_FILE;
+					}
+				}
+			}
+			else
+			{
+				ESP_LOGI(SERVER_TAG,"Tag Notify Disabled");
+			}
+
+		}
+		else
+		{
+			ESP_LOGI(SERVER_TAG,"Tag No Device Connected");
+		}
 		vTaskDelay(pdMS_TO_TICKS(10000));
 	}
 }

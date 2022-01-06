@@ -730,7 +730,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
                 if (descr_value == NOTIFY_ENABLE) {
                     if (a_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
-                        ESP_LOGI(COEX_TAG, "notify enable\n");
+                        ESP_LOGI(COEX_TAG, "GPS notify enable\n");
                         /* Modify the hanlde */
                         server_handle_gps.notify_enabled = true;
                         server_handle_gps.app_gatt_if =gatts_if;
@@ -756,7 +756,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                                                     sizeof(indicate_data), indicate_data, true);
                     }
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
-                    ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
+                    ESP_LOGI(COEX_TAG, "GPS notify/indicate disable \n");
                     /* Modify the handle */
                     server_handle_gps.notify_enabled = false;
                 } else {
@@ -884,7 +884,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 uint16_t descr_value= param->write.value[1]<<8 | param->write.value[0];
                 if (descr_value == NOTIFY_ENABLE) {
                     if (b_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
-                    	ESP_LOGI(COEX_TAG, "notify enable\n");
+                    	ESP_LOGI(COEX_TAG, "Tag notify enable\n");
                     	/* Modify the hanlde */
                     	server_handle_tag.notify_enabled = true;
                     	server_handle_tag.app_gatt_if =gatts_if;
@@ -910,7 +910,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                                                     sizeof(indicate_data), indicate_data, true);
                     }
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
-                    ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
+                    ESP_LOGI(COEX_TAG, "Tag notify/indicate disable \n");
                     server_handle_tag.notify_enabled = false;
                 } else {
                     ESP_LOGE(COEX_TAG, "unknown value\n");
@@ -1090,11 +1090,13 @@ void app_main(void)
     	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
     	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
     	//BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
-    	xTaskCreate(ble_server_task, "ble_server_task", 4018, NULL, 10, NULL);
+    	xTaskCreate(ble_server_gpstask, "ble_server_task", 4018, NULL, 10, NULL);
+    	xTaskCreate(ble_server_tagtask, "ble_server_tagtask", 4018, NULL, 10, NULL);
+
     	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
     	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
     	//Task to write to SD Card
-    	xTaskCreate(gpslogger_Task, "gpsLogger_task", 2048, NULL, 10, NULL);
+    	xTaskCreate(gpslogger_Task, "gpsLogger_task", 4018, NULL, 10, NULL);
     	xTaskCreate(taglogger_Task, "TagLogger_task", 4018, NULL, 10, NULL);
 
     	//Task to initiate Sleep

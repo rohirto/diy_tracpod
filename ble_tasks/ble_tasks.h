@@ -62,7 +62,8 @@ typedef struct
 
 /* BLE Tasks definitions */
 void ble_client_task(void*);
-void ble_server_task(void*);
+void ble_server_gpstask(void*);
+void ble_server_tagtask(void*);
 app_ret gps_file_handling();
 app_ret f_tag_file_handling();
 app_ret r_tag_file_handling();
