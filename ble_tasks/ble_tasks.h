@@ -31,7 +31,7 @@
 #define APP_BLE_SCAN_INTERVAL			//in ms
 #define APP_BLE_SCAN_TIME		10		//in secs
 
-#define TAG_BUFFER_LEN			15
+#define TAG_BUFFER_LEN			17
 #define GPS_CURR_FILE			0x01
 #define FRONT_CURR_FILE			0x02
 #define REAR_CURR_FILE			0x03

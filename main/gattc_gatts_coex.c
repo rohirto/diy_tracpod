@@ -1090,12 +1090,12 @@ void app_main(void)
     	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
     	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
     	//BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
-    	xTaskCreate(ble_server_task, "ble_server_task", 2048, NULL, 10, NULL);
+    	xTaskCreate(ble_server_task, "ble_server_task", 4018, NULL, 10, NULL);
     	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
     	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
     	//Task to write to SD Card
     	xTaskCreate(gpslogger_Task, "gpsLogger_task", 2048, NULL, 10, NULL);
-    	xTaskCreate(taglogger_Task, "TagLogger_task", 2048, NULL, 10, NULL);
+    	xTaskCreate(taglogger_Task, "TagLogger_task", 4018, NULL, 10, NULL);
 
     	//Task to initiate Sleep
     	//Debug Task

@@ -40,29 +40,30 @@ void ble_server_task(void *pvParams)
 {
 	for(;;)
 	{
-		/* BLE Server Task -> After some interval it should connect with BLE Client (Phone) and synchronize the Data */
-		/* Each 10 mins should sync data with Mobile App */
-		switch(curr_file)
+		if(server_handle_gps.connected == true)
 		{
-		case NO_CURR_FILE:
-			ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
-			if(gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
+			/* BLE Server Task -> After some interval it should connect with BLE Client (Phone) and synchronize the Data */
+			/* Each 10 mins should sync data with Mobile App */
+			switch(curr_file)
 			{
-				curr_file = GPS_CURR_FILE;
-			}
-			else if (f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
-			{
-				curr_file = FRONT_CURR_FILE;
-			}
+			case NO_CURR_FILE:
+				ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
+				if(gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
+				{
+					curr_file = GPS_CURR_FILE;
+				}
+				else if (f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
+				{
+					curr_file = FRONT_CURR_FILE;
+				}
 
-			break;
-		case GPS_CURR_FILE:
-			if(server_handle_gps.connected == true)
-			{
+				break;
+			case GPS_CURR_FILE:
+
 				//GPS Handling
 				if(server_handle_gps.notify_enabled == true )
 				{
-					if(sd_handle.mounted == true)
+					if(1)
 					{
 						if(gps_file_handling() != app_success)
 						{
@@ -78,14 +79,17 @@ void ble_server_task(void *pvParams)
 						}
 					}
 				}
-			}
-			break;
-		case FRONT_CURR_FILE:
-			if(server_handle_tag.connected == true)
-			{
+				else
+				{
+					ESP_LOGI(SERVER_TAG,"Notify Disabled");
+				}
+
+				break;
+			case FRONT_CURR_FILE:
+
 				if(server_handle_tag.notify_enabled == true )
 				{
-					if(sd_handle.mounted == true )
+					if(1 )
 					{
 						if(f_tag_file_handling() != app_success)
 						{
@@ -101,87 +105,97 @@ void ble_server_task(void *pvParams)
 						}
 					}
 				}
+				else
+				{
+					ESP_LOGI(SERVER_TAG,"Notify Disabled");
+				}
+
+				break;
 			}
-			break;
+		}
+		else
+		{
+			//No device is connected
+			ESP_LOGI(SERVER_TAG,"No Device Connected");
 
 		}
 
 
-//			//A device is connected
-//			if(server_handle.notify_enabled == true )
-//			{
-//				if(sd_handle.mounted == true && sd_handle.busy == false)
-//				{
-//					switch(server_handle.current_file)
-//					{
-//					case GPS_CURR_FILE:
-//						if(gps_file_handling() != app_success)
-//						{
-//							//Error
-//							delete_file("GPS.txt");
-//							gps_file_handle.if_exist = false;
-//
-//						}
-//						break;
-//					case FRONT_CURR_FILE:
-//						if(f_tag_file_handling() != app_success)
-//						{
-//							//Error
-//							delete_file("front.txt");
-//							f_tag_file_handle.if_exist = false;
-//						}
-//						break;
-//					case REAR_CURR_FILE:
-//						if(r_tag_file_handling() != app_success)
-//						{
-//							//Error
-//							delete_file("rear.txt");
-//							r_tag_file_handle.if_exist = false;
-//						}
-//						break;
-//					case NO_CURR_FILE:
-//						ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
-//						if(gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
-//						{
-//							server_handle.current_file = GPS_CURR_FILE;
-//						}
-//						else if (f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
-//						{
-//							server_handle.current_file = FRONT_CURR_FILE;
-//						}
-//						else if (r_tag_file_handle.file_read != true && r_tag_file_handle.if_exist == true)
-//						{
-//							server_handle.current_file = REAR_CURR_FILE;
-//						}
-//						break;
-//					default:
-//						break;
-//
-//					}
-//					//Switch case for File Handling , Need to sequentially handle this stuff
-//
-//					//f_tag_file_handling()
-//					//r_tag_file_handling()
-//
-//				}
-//				else
-//				{
-//					ESP_LOGI(SERVER_TAG,"SD CARD not mounted or Busy");
-//				}
-//
-//
-//			}
-//			else
-//			{
-//				ESP_LOGI(SERVER_TAG,"Notify Disabled");
-//			}
-//		}
-//		else
-//		{
-//			//No device is connected
-//			ESP_LOGI(SERVER_TAG,"No Device Connected");
-//
-//		}
+		//			//A device is connected
+		//			if(server_handle.notify_enabled == true )
+		//			{
+		//				if(sd_handle.mounted == true && sd_handle.busy == false)
+		//				{
+		//					switch(server_handle.current_file)
+		//					{
+		//					case GPS_CURR_FILE:
+		//						if(gps_file_handling() != app_success)
+		//						{
+		//							//Error
+		//							delete_file("GPS.txt");
+		//							gps_file_handle.if_exist = false;
+		//
+		//						}
+		//						break;
+		//					case FRONT_CURR_FILE:
+		//						if(f_tag_file_handling() != app_success)
+		//						{
+		//							//Error
+		//							delete_file("front.txt");
+		//							f_tag_file_handle.if_exist = false;
+		//						}
+		//						break;
+		//					case REAR_CURR_FILE:
+		//						if(r_tag_file_handling() != app_success)
+		//						{
+		//							//Error
+		//							delete_file("rear.txt");
+		//							r_tag_file_handle.if_exist = false;
+		//						}
+		//						break;
+		//					case NO_CURR_FILE:
+		//						ESP_LOGI(SERVER_TAG,"No file to be handled rigt now");
+		//						if(gps_file_handle.file_read != true && gps_file_handle.if_exist == true)
+		//						{
+		//							server_handle.current_file = GPS_CURR_FILE;
+		//						}
+		//						else if (f_tag_file_handle.file_read != true && f_tag_file_handle.if_exist == true)
+		//						{
+		//							server_handle.current_file = FRONT_CURR_FILE;
+		//						}
+		//						else if (r_tag_file_handle.file_read != true && r_tag_file_handle.if_exist == true)
+		//						{
+		//							server_handle.current_file = REAR_CURR_FILE;
+		//						}
+		//						break;
+		//					default:
+		//						break;
+		//
+		//					}
+		//					//Switch case for File Handling , Need to sequentially handle this stuff
+		//
+		//					//f_tag_file_handling()
+		//					//r_tag_file_handling()
+		//
+		//				}
+		//				else
+		//				{
+		//					ESP_LOGI(SERVER_TAG,"SD CARD not mounted or Busy");
+		//				}
+		//
+		//
+		//			}
+		//			else
+		//			{
+		//				ESP_LOGI(SERVER_TAG,"Notify Disabled");
+		//			}
+		//		}
+		//		else
+		//		{
+		//			//No device is connected
+		//			ESP_LOGI(SERVER_TAG,"No Device Connected");
+		//
+		//		}
 
 		vTaskDelay(pdMS_TO_TICKS(10000));
 	}
@@ -268,7 +282,7 @@ app_ret f_tag_file_handling()
 				if(f_tag_file_handle.valid_data == true)
 				{
 					ESP_LOGI(SERVER_TAG,"Tag Data To be uploaded: %s",tag_line);
-					memcpy(server_handle_tag.notify_data, tag_line, 15);
+					memcpy(server_handle_tag.notify_data, tag_line, TAG_BUFFER_LEN);
 					//Write to Client
 					esp_ble_gatts_send_indicate(server_handle_tag.app_gatt_if, server_handle_tag.conn_id, server_handle_tag.char_handle,
 							sizeof(server_handle_tag.notify_data), server_handle_tag.notify_data, false);
@@ -299,7 +313,7 @@ app_ret f_tag_file_handling()
 	{
 		ESP_LOGI(SERVER_TAG,"Tag Log File doesnot exists");
 		server_handle_tag.current_file = NO_CURR_FILE;		//Then handle next File
-		f_tag_file_handle.busy = false;
+		//f_tag_file_handle.busy = false;
 		xSemaphoreGive( xSDMutex );
 		xSemaphoreGive( xFileMutex );
 		return app_error;

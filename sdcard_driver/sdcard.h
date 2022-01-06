@@ -27,7 +27,7 @@ typedef struct
 	bool file_read;
 	bool if_exist;
 	bool valid_data;
-	bool busy;
+	//bool busy;
 }file_handle;
 
 //Macros

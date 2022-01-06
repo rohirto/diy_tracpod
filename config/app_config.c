@@ -82,11 +82,11 @@ void init_handles(void)
 	gps_file_handle.total_lines = 0;
 	gps_file_handle.file_type = GPS_FILE_TYPE;
 	gps_file_handle.valid_data = false;
-	gps_file_handle.busy = false;
+	//gps_file_handle.busy = false;
 
-	if(sd_handle.mounted == true)
+	if(1)
 	{
-		gps_file_handle.busy = true;
+		//gps_file_handle.busy = true;
 		if(if_exists("GPS.txt") == app_success)
 		{
 			gps_file_handle.if_exist = true;
@@ -98,7 +98,7 @@ void init_handles(void)
 			gps_file_handle.if_exist = false;
 			ESP_LOGI(INIT_TAG,"GPS File Does not Exits!");
 		}
-		gps_file_handle.busy = false;
+		//gps_file_handle.busy = false;
 	}
 	else
 	{
@@ -108,13 +108,14 @@ void init_handles(void)
 	f_tag_file_handle.total_lines = 0;
 	f_tag_file_handle.file_type = TAG_FILE_TYPE;
 	f_tag_file_handle.valid_data = false;
-	f_tag_file_handle.busy = false;
-	if(sd_handle.mounted == true)
+	//f_tag_file_handle.busy = false;
+	if(1)
 	{
-		f_tag_file_handle.busy = true;
-		if(if_exists("front.txt") == app_success)
+		//f_tag_file_handle.busy = true;
+		if(if_exists("tag.txt") == app_success)
 		{
 			f_tag_file_handle.if_exist = true;
+			f_tag_file_handle.file_read = false;
 			ESP_LOGI(INIT_TAG,"Front Tag File Exits!");
 		}
 		else
@@ -122,36 +123,36 @@ void init_handles(void)
 			f_tag_file_handle.if_exist = false;
 			ESP_LOGI(INIT_TAG,"Front Tag File Does not Exits!");
 		}
-		f_tag_file_handle.busy = false;
+		//f_tag_file_handle.busy = false;
 	}
 	else
 	{
 		ESP_LOGE(INIT_TAG,"SD not Mounted");
 	}
-	r_tag_file_handle.current_line = 0;
-	r_tag_file_handle.total_lines = 0;
-	r_tag_file_handle.file_type = TAG_FILE_TYPE;
-	r_tag_file_handle.valid_data = false;
-	r_tag_file_handle.busy = false;
-	if(sd_handle.mounted == true)
-	{
-		r_tag_file_handle.busy = true;
-		if(if_exists("rear.txt") == app_success)
-		{
-			r_tag_file_handle.if_exist = true;
-			ESP_LOGI(INIT_TAG,"Rear Tag File Exits!");
-		}
-		else
-		{
-			r_tag_file_handle.if_exist = false;
-			ESP_LOGI(INIT_TAG,"Rear Tag File Does not Exits!");
-		}
-		r_tag_file_handle.busy = false;
-	}
-	else
-	{
-		ESP_LOGE(INIT_TAG,"SD not Mounted");
-	}
+//	r_tag_file_handle.current_line = 0;
+//	r_tag_file_handle.total_lines = 0;
+//	r_tag_file_handle.file_type = TAG_FILE_TYPE;
+//	r_tag_file_handle.valid_data = false;
+//	r_tag_file_handle.busy = false;
+//	if(1)
+//	{
+//		r_tag_file_handle.busy = true;
+//		if(if_exists("rear.txt") == app_success)
+//		{
+//			r_tag_file_handle.if_exist = true;
+//			ESP_LOGI(INIT_TAG,"Rear Tag File Exits!");
+//		}
+//		else
+//		{
+//			r_tag_file_handle.if_exist = false;
+//			ESP_LOGI(INIT_TAG,"Rear Tag File Does not Exits!");
+//		}
+//		r_tag_file_handle.busy = false;
+//	}
+//	else
+//	{
+//		ESP_LOGE(INIT_TAG,"SD not Mounted");
+//	}
 
 
 

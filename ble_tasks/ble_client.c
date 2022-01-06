@@ -25,6 +25,7 @@ QueueHandle_t xTagDataQueue;
 SemaphoreHandle_t xTagDataQueueMutex;
 
 /* Global Variables */
+static const char *CLIENT_TAG = "BLE_CLIENT";
 ble_client_handle client_handle;
 static esp_ble_scan_params_t ble_scan_params_1 = {
     .scan_type              = BLE_SCAN_TYPE_ACTIVE,
@@ -47,6 +48,7 @@ void ble_client_task(void* pvParams)
 		/* Get Notification from BLE Handler */
 		if(app_tag_r.tag_detected == true)
 		{
+			ESP_LOGI(CLIENT_TAG, "TAG Deteceted");
 			if(filter_data(&app_tag_r) == app_success)
 			{
 				if(process_data(&app_tag_r) == app_success)
@@ -68,6 +70,7 @@ void ble_client_task(void* pvParams)
 		}
 		if(app_tag_f.tag_detected == true)
 		{
+			ESP_LOGI(CLIENT_TAG, "TAG Deteceted");
 			if(filter_data(&app_tag_f) == app_success)
 			{
 				if(process_data(&app_tag_f) == app_success)

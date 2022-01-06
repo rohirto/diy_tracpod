@@ -71,7 +71,8 @@ void gpslogger_Task(void* pvParams)
 	//gps = malloc(sizeof(struct gps_queue_msg *));
 	for(;;)
 	{
-		if(sd_handle.mounted == true && gps_handle.init == true)
+		//if(sd_handle.mounted == true && gps_handle.init == true)
+		if(gps_handle.init == true)
 		{
 
 
@@ -113,7 +114,8 @@ void taglogger_Task(void* pvParams)
 	tag_queue_msg tag;
 	for(;;)
 	{
-		if(sd_handle.mounted == true)
+		//if(sd_handle.mounted == true)
+		if(1)
 		{
 			xSemaphoreTake(xFileMutex, portMAX_DELAY);
 			xSemaphoreTake(xTagDataQueueMutex, portMAX_DELAY);
