@@ -734,8 +734,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                         /* Modify the hanlde */
                         server_handle_gps.notify_enabled = true;
                         server_handle_gps.app_gatt_if =gatts_if;
-                        server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+                        server_handle_gps.char_handle =  gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
                         server_handle_gps.conn_id =  param->write.conn_id;
+                        ESP_LOGI(COEX_TAG, "GPS Conn Params, gatt_if: %d, char_handle: %d, conn id: %d\n",gatts_if, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle, param->write.conn_id);
                         uint8_t notify_data[15];
                         for (int i = 0; i < sizeof(notify_data); ++ i) {
                             notify_data[i] = i%0xff;
@@ -849,7 +850,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 /* tag profile */
 static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
 	server_handle_tag.app_gatt_if =gatts_if;
-	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle;
 	server_handle_tag.conn_id =  param->write.conn_id;
     switch (event) {
     case ESP_GATTS_REG_EVT:
@@ -888,8 +889,9 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                     	/* Modify the hanlde */
                     	server_handle_tag.notify_enabled = true;
                     	server_handle_tag.app_gatt_if =gatts_if;
-                    	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+                    	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle;
                     	server_handle_tag.conn_id =  param->write.conn_id;
+                    	ESP_LOGI(COEX_TAG, "Tag Conn Params, gatt_if: %d, char_handle: %d, conn id: %d\n",gatts_if, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle, param->write.conn_id);
                         uint8_t notify_data[15];
                         for (int i = 0; i < sizeof(notify_data); ++ i) {
                             notify_data[i] = i%0xff;
