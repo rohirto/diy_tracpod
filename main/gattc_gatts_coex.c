@@ -737,13 +737,13 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                         server_handle_gps.char_handle =  gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
                         server_handle_gps.conn_id =  param->write.conn_id;
                         ESP_LOGI(COEX_TAG, "GPS Conn Params, gatt_if: %d, char_handle: %d, conn id: %d\n",gatts_if, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle, param->write.conn_id);
-                        uint8_t notify_data[15];
-                        for (int i = 0; i < sizeof(notify_data); ++ i) {
-                            notify_data[i] = i%0xff;
-                        }
-                        //the size of notify_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle,
-                                                sizeof(notify_data), notify_data, false);
+//                        uint8_t notify_data[15];
+//                        for (int i = 0; i < sizeof(notify_data); ++ i) {
+//                            notify_data[i] = i%0xff;
+//                        }
+//                        //the size of notify_data[] need less than MTU size
+//                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle,
+//                                                sizeof(notify_data), notify_data, false);
                     }
                 } else if (descr_value == INDICATE_ENABLE) {
                     if (a_property & ESP_GATT_CHAR_PROP_BIT_INDICATE) {
@@ -892,13 +892,13 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                     	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle;
                     	server_handle_tag.conn_id =  param->write.conn_id;
                     	ESP_LOGI(COEX_TAG, "Tag Conn Params, gatt_if: %d, char_handle: %d, conn id: %d\n",gatts_if, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle, param->write.conn_id);
-                        uint8_t notify_data[15];
-                        for (int i = 0; i < sizeof(notify_data); ++ i) {
-                            notify_data[i] = i%0xff;
-                        }
-                        //the size of notify_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle,
-                                                sizeof(notify_data), notify_data, false);
+//                        uint8_t notify_data[15];
+//                        for (int i = 0; i < sizeof(notify_data); ++ i) {
+//                            notify_data[i] = i%0xff;
+//                        }
+//                        //the size of notify_data[] need less than MTU size
+//                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle,
+//                                                sizeof(notify_data), notify_data, false);
                     }
                 } else if (descr_value == INDICATE_ENABLE) {
                     if (b_property & ESP_GATT_CHAR_PROP_BIT_INDICATE) {

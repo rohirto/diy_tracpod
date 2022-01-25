@@ -332,6 +332,7 @@ app_ret delete_file(char* filename)
 	else
 	{
 		free(file);
+		ESP_LOGE(SD_TAG, "Error Deleting FILE: %s", file);
 		return app_error;
 	}
 	free(file);

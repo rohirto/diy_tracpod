@@ -44,7 +44,7 @@ void ble_server_gpstask(void *pvParams)
 		{
 			if(server_handle_gps.notify_enabled == true )
 			{
-				if(1)
+				if(if_exists("GPS.txt") == app_success)
 				{
 					if(gps_file_handling() != app_success)
 					{
@@ -58,6 +58,10 @@ void ble_server_gpstask(void *pvParams)
 					{
 						curr_file = NO_CURR_FILE;
 					}
+				}
+				else
+				{
+					ESP_LOGI(SERVER_TAG,"GPS File doesnot exists");
 				}
 			}
 			else
@@ -236,7 +240,7 @@ void ble_server_tagtask(void* pvParams)
 		{
 			if(server_handle_tag.notify_enabled == true )
 			{
-				if(1 )
+				if(if_exists("tag.txt") == app_success)
 				{
 					if(f_tag_file_handling() != app_success)
 					{
@@ -249,8 +253,14 @@ void ble_server_tagtask(void* pvParams)
 					else
 					{
 						//curr_file = NO_CURR_FILE;
+						vTaskDelay(pdMS_TO_TICKS(2000));
 					}
 				}
+				else
+				{
+					ESP_LOGI(SERVER_TAG,"Tag File doesnot exists");
+				}
+
 			}
 			else
 			{
