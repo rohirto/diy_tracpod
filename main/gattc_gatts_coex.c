@@ -25,9 +25,32 @@
 #include "esp_bt_defs.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
-#include "gps_driver.h"
-#include "config.h"
+#include "app_config.h"
+#include "nmea_parser.h"
+#include "ble_tasks.h"
+#include "gps_task.h"
+#include "sdcard.h"
+#include "treel_tag.h"
 
+
+//Externs
+extern QueueHandle_t xTagDataQueue;
+extern QueueHandle_t xGPSQueue;
+TaskHandle_t xDebug_Handle;
+extern SemaphoreHandle_t xTagDataQueueMutex;
+extern SemaphoreHandle_t xSDMutex;
+extern SemaphoreHandle_t xFileMutex;
+extern SemaphoreHandle_t xGPSQueueMutex;
+extern ble_server_handle server_handle_gps;
+extern ble_server_handle server_handle_tag;
+extern ble_client_handle client_handle;
+extern sdcard_handle sd_handle;
+extern esp_bd_addr_t	tpms_r_tag_mac ;
+extern esp_bd_addr_t	tpms_f_tag_mac  ;
+extern treel_tag_data app_tag_r, app_tag_f;
+
+/* Func Proto */
+void ble_coex_init();
 
 #define GATTS_SERVICE_UUID_TEST_A   0x00FF
 #define GATTS_CHAR_UUID_TEST_A      0xFF01
@@ -36,6 +59,10 @@
 #define GATTS_SERVICE_UUID_TEST_B   0x00EE
 #define GATTS_CHAR_UUID_TEST_B      0xEE01
 #define GATTS_NUM_HANDLE_TEST_B     4
+
+#define GATTS_SERVICE_UUID_TEST_C   0x00DD
+#define GATTS_CHAR_UUID_TEST_C      0xDD01
+#define GATTS_NUM_HANDLE_TEST_C     4
 
 #define GATTS_DEMO_CHAR_VAL_LEN_MAX 0x40
 #define PREPARE_BUF_MAX_SIZE        1024
@@ -52,13 +79,13 @@
 #define REMOTE_SERVICE_UUID         0x00FF
 #define REMOTE_NOTIFY_CHAR_UUID     0xFF01
 #define INVALID_HANDLE              0
-#define GATTS_ADV_NAME              "ESP_GATTS_DEMO"
+#define GATTS_ADV_NAME              "GATTS_DEMO"
 #define COEX_TAG                    "GATTC_GATTS_COEX"
 #define NOTIFY_ENABLE               0x0001
 #define INDICATE_ENABLE             0x0002
 #define NOTIFY_INDICATE_DISABLE     0x0000
 
-static const char remote_device_name[] = "ESP_GATTS_DEMO";
+//static const char remote_device_name[] = "ESP_GATTS_DEMO";
 
 typedef struct {
     uint8_t                 *prepare_buf;
@@ -279,21 +306,75 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
         switch (scan_result->scan_rst.search_evt) {
         case ESP_GAP_SEARCH_INQ_RES_EVT:
-            adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
-                                                ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
-            if (adv_name != NULL) {
-                if (strlen(remote_device_name) == adv_name_len && strncmp((char *)adv_name, remote_device_name, adv_name_len) == 0) {
-                    if (connect == false) {
-                        connect = true;
-                        ESP_LOGI(COEX_TAG, "connect to the remote device %s\n", remote_device_name);
-                        esp_ble_gap_stop_scanning();
-                        esp_ble_gattc_open(gattc_profile_tab[GATTC_PROFILE_C_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
-                    }
-                }
-            }
+        	/* BLE Scan results Here */
+//        	 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+//        	 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+//        	 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//        	 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+//        	 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+
+        	 /* If the result matches any tpms tag data */
+        	 if(memcmp(scan_result->scan_rst.bda, tpms_r_tag_mac, 6) == 0)
+        	 {
+        		 //If Rear equal
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+//        		 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+//        		 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+//        		 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "ADV Data: ");
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 //memcpy(app_tag_r.tag_addr, scan_result->scan_rst.bda,  6);
+        		 memcpy(app_tag_r.payload_buff,scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 app_tag_r.tag_detected = true;
+
+        	 }
+        	 else if(memcmp(scan_result->scan_rst.bda, tpms_f_tag_mac, 6) == 0)
+        	 {
+        		 //If Front equal
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.bda, 6);
+//        		 ESP_LOGI(COEX_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
+//        		 adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "searched Device Name Len %d", adv_name_len);
+//        		 esp_log_buffer_char(COEX_TAG, adv_name, adv_name_len);
+//        		 ESP_LOGI(COEX_TAG, "ADV Data: ");
+//        		 esp_log_buffer_hex(COEX_TAG, scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 memcpy(app_tag_f.payload_buff,scan_result->scan_rst.ble_adv, scan_result->scan_rst.adv_data_len);
+        		 app_tag_f.tag_detected = true;
+        	 }
+        	 else
+        	 {
+        		 //Rougue Tag
+        	 }
+        	 //Get Service UUID if that Service UUID matches then OK
+
+        	 //esp_ble_gap_stop_scanning();
+        	 //esp_bluedroid_disable();
+        	 //esp_bt_controller_disable();
+        	 /*Now we enable it again*/
+        	 //esp_bt_controller_enable(ESP_BT_MODE_BLE);
+        	 //esp_ble_gap_set_scan_params(&ble_scan_params);
+        	 //            adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
+//                                                ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+//            if (adv_name != NULL) {
+//                if (strlen(remote_device_name) == adv_name_len && strncmp((char *)adv_name, remote_device_name, adv_name_len) == 0) {
+//                    if (connect == false) {
+//                        connect = true;
+//                        ESP_LOGI(COEX_TAG, "connect to the remote device %s\n", remote_device_name);
+//                        esp_ble_gap_stop_scanning();
+//                        esp_ble_gattc_open(gattc_profile_tab[GATTC_PROFILE_C_APP_ID].gattc_if, scan_result->scan_rst.bda, scan_result->scan_rst.ble_addr_type, true);
+//                    }
+//                }
+//            }
             break;
         case ESP_GAP_SEARCH_INQ_CMPL_EVT:
-             ESP_LOGI(COEX_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT, scan stop\n");
+             ESP_LOGI(COEX_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT, restarting scan\n");
+             client_handle.scan_complete = true;
+             //esp_bluedroid_disable();
+             //esp_bt_controller_disable();
+             /*Now we enable it again*/
+             //esp_bt_controller_enable(ESP_BT_MODE_BLE);
+             //esp_ble_gap_set_scan_params(&ble_scan_params);
             break;
         default:
             break;
@@ -581,7 +662,11 @@ static void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, 
     prepare_write_env->prepare_len = 0;
 }
 
+/* GPS Profile handling */
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
+	server_handle_gps.app_gatt_if =gatts_if;
+	server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+	server_handle_gps.conn_id =  param->write.conn_id;
     switch (event) {
     case ESP_GATTS_REG_EVT:
         ESP_LOGI(COEX_TAG, "REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
@@ -645,14 +730,20 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 uint16_t descr_value = param->write.value[1]<<8 | param->write.value[0];
                 if (descr_value == NOTIFY_ENABLE) {
                     if (a_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
-                        ESP_LOGI(COEX_TAG, "notify enable\n");
-                        uint8_t notify_data[15];
-                        for (int i = 0; i < sizeof(notify_data); ++ i) {
-                            notify_data[i] = i%0xff;
-                        }
-                        //the size of notify_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle,
-                                                sizeof(notify_data), notify_data, false);
+                        ESP_LOGI(COEX_TAG, "GPS notify enable\n");
+                        /* Modify the hanlde */
+                        server_handle_gps.notify_enabled = true;
+                        server_handle_gps.app_gatt_if =gatts_if;
+                        server_handle_gps.char_handle =  gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+                        server_handle_gps.conn_id =  param->write.conn_id;
+                        ESP_LOGI(COEX_TAG, "GPS Conn Params, gatt_if: %d, char_handle: %d, conn id: %d\n",gatts_if, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle, param->write.conn_id);
+//                        uint8_t notify_data[15];
+//                        for (int i = 0; i < sizeof(notify_data); ++ i) {
+//                            notify_data[i] = i%0xff;
+//                        }
+//                        //the size of notify_data[] need less than MTU size
+//                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle,
+//                                                sizeof(notify_data), notify_data, false);
                     }
                 } else if (descr_value == INDICATE_ENABLE) {
                     if (a_property & ESP_GATT_CHAR_PROP_BIT_INDICATE) {
@@ -666,7 +757,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                                                     sizeof(indicate_data), indicate_data, true);
                     }
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
-                    ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
+                    ESP_LOGI(COEX_TAG, "GPS notify/indicate disable \n");
+                    /* Modify the handle */
+                    server_handle_gps.notify_enabled = false;
                 } else {
                     ESP_LOGE(COEX_TAG, "unknown descr value\n");
                     esp_log_buffer_hex(COEX_TAG, param->write.value, param->write.len);
@@ -731,11 +824,16 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                  param->connect.remote_bda[0], param->connect.remote_bda[1], param->connect.remote_bda[2],
                  param->connect.remote_bda[3], param->connect.remote_bda[4], param->connect.remote_bda[5]);
         gatts_profile_tab[GATTS_PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
+        /* Modify the handle */
+        server_handle_gps.connected = true;
         break;
     }
     case ESP_GATTS_DISCONNECT_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x\n", param->disconnect.reason);
         esp_ble_gap_start_advertising(&adv_params);
+        /* Modify the handle */
+        server_handle_gps.connected = false;
+        server_handle_gps.notify_enabled = false;
         break;
     case ESP_GATTS_CONF_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d\n", param->conf.status, param->conf.handle);
@@ -749,7 +847,11 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
     }
 }
 
+/* tag profile */
 static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
+	server_handle_tag.app_gatt_if =gatts_if;
+	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle;
+	server_handle_tag.conn_id =  param->write.conn_id;
     switch (event) {
     case ESP_GATTS_REG_EVT:
         ESP_LOGI(COEX_TAG, "REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
@@ -783,14 +885,20 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                 uint16_t descr_value= param->write.value[1]<<8 | param->write.value[0];
                 if (descr_value == NOTIFY_ENABLE) {
                     if (b_property & ESP_GATT_CHAR_PROP_BIT_NOTIFY) {
-                        ESP_LOGI(COEX_TAG, "notify enable\n");
-                        uint8_t notify_data[15];
-                        for (int i = 0; i < sizeof(notify_data); ++ i) {
-                            notify_data[i] = i%0xff;
-                        }
-                        //the size of notify_data[] need less than MTU size
-                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle,
-                                                sizeof(notify_data), notify_data, false);
+                    	ESP_LOGI(COEX_TAG, "Tag notify enable\n");
+                    	/* Modify the hanlde */
+                    	server_handle_tag.notify_enabled = true;
+                    	server_handle_tag.app_gatt_if =gatts_if;
+                    	server_handle_tag.char_handle = gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle;
+                    	server_handle_tag.conn_id =  param->write.conn_id;
+                    	ESP_LOGI(COEX_TAG, "Tag Conn Params, gatt_if: %d, char_handle: %d, conn id: %d\n",gatts_if, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle, param->write.conn_id);
+//                        uint8_t notify_data[15];
+//                        for (int i = 0; i < sizeof(notify_data); ++ i) {
+//                            notify_data[i] = i%0xff;
+//                        }
+//                        //the size of notify_data[] need less than MTU size
+//                        esp_ble_gatts_send_indicate(gatts_if, param->write.conn_id, gatts_profile_tab[GATTS_PROFILE_B_APP_ID].char_handle,
+//                                                sizeof(notify_data), notify_data, false);
                     }
                 } else if (descr_value == INDICATE_ENABLE) {
                     if (b_property & ESP_GATT_CHAR_PROP_BIT_INDICATE) {
@@ -804,7 +912,8 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                                                     sizeof(indicate_data), indicate_data, true);
                     }
                 } else if (descr_value == NOTIFY_INDICATE_DISABLE) {
-                    ESP_LOGI(COEX_TAG, "notify/indicate disable \n");
+                    ESP_LOGI(COEX_TAG, "Tag notify/indicate disable \n");
+                    server_handle_tag.notify_enabled = false;
                 } else {
                     ESP_LOGE(COEX_TAG, "unknown value\n");
                 }
@@ -872,6 +981,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                  param->connect.remote_bda[0], param->connect.remote_bda[1], param->connect.remote_bda[2],
                  param->connect.remote_bda[3], param->connect.remote_bda[4], param->connect.remote_bda[5]);
                  gatts_profile_tab[GATTS_PROFILE_B_APP_ID].conn_id = param->connect.conn_id;
+                 server_handle_tag.connected = true;
         break;
     case ESP_GATTS_CONF_EVT:
         ESP_LOGI(COEX_TAG, "ESP_GATTS_CONF_EVT status %d attr_handle %d\n", param->conf.status, param->conf.handle);
@@ -880,11 +990,18 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         }
     break;
     case ESP_GATTS_DISCONNECT_EVT:
+    	server_handle_tag.connected = false;
+    	server_handle_tag.notify_enabled = false;
+    	ESP_LOGI(COEX_TAG, "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x\n", param->disconnect.reason);
+    	esp_ble_gap_start_advertising(&adv_params);
+    	break;
     case ESP_GATTS_OPEN_EVT:
     default:
         break;
     }
 }
+
+
 
 static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
 {
@@ -946,92 +1063,138 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 
 void app_main(void)
 {
-    esp_err_t ret;
-
-    // Initialize NVS.
-    ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( ret );
-
-    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
-
-    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    ret = esp_bt_controller_init(&bt_cfg);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bluedroid_init();
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_bluedroid_enable();
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s enable bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return;
-    }
-
-    ret = esp_ble_gap_register_callback(gap_event_handler);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gap register error, error code = %x", ret);
-        return;
-    }
-
-    // gatts register
-    ret = esp_ble_gatts_register_callback(gatts_event_handler);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gatts register error, error code = %x", ret);
-        return;
-    }
-
-    ret = esp_ble_gatts_app_register(GATTS_PROFILE_A_APP_ID);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
-        return;
-    }
-
-    ret = esp_ble_gatts_app_register(GATTS_PROFILE_B_APP_ID);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
-        return;
-    }
-
-    // gattc regisrter
-    ret = esp_ble_gattc_register_callback(esp_gattc_cb);
-    if(ret) {
-        ESP_LOGE(COEX_TAG, "%s gattc register failed, error code = %x\n", __func__, ret);
-        return;
-    }
-
-    ret = esp_ble_gattc_app_register(GATTC_PROFILE_C_APP_ID);
-    if (ret) {
-        ESP_LOGE(COEX_TAG, "%s gattc app register failed, error code = %x\n", __func__, ret);
-    }
-
-    esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
-    if (local_mtu_ret) {
-        ESP_LOGE(COEX_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
-    }
-
+	//Init BLE Coex
+	ble_coex_init();
     //Init GPS Module
-    init_gps();
+    //init_gps();
     init_gpios();
+    //gps_init();
+    //sd_handle.busy = false;
+    sd_handle.mounted = false;
+    //sdcard_init();
 
+    //Queues and Mutexes
+    /* Create the Debug queue and Mutex */
+    xTagDataQueue = xQueueCreate( 2, sizeof(tag_queue_msg));
+    xTagDataQueueMutex = xSemaphoreCreateMutex();
+    xSDMutex =  xSemaphoreCreateMutex();
+    xFileMutex  =  xSemaphoreCreateMutex();
+    //GPS Queue
+    xGPSQueue = xQueueCreate(2, sizeof(gps_queue_msg));
+    xGPSQueueMutex = xSemaphoreCreateMutex();
     //Task creations
     //start gpio task
-       xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+    if((xTagDataQueue != NULL) & (xTagDataQueueMutex != NULL) &(xGPSQueue != NULL) & (xGPSQueueMutex != NULL) & (xSDMutex!=NULL) & (xFileMutex != NULL))
+    {
+    	//xTaskCreate(gpio_task_example, "gpio_task_example", 2048, NULL, 10, NULL);
+    	//Init task to init everything and then delete itself
+    	xTaskCreate(init_task, "init_task", 4018, NULL, 11, NULL);
+    	//BLE Client task -> After a timer completion BLE client will scan for TPMS tags
+    	xTaskCreate(ble_client_task, "ble_client_task", 2048, NULL, 10, NULL);
+    	//BLE Server Task -> After a timer all aggregated Data will be published by the Server to Client
+    	xTaskCreate(ble_server_gpstask, "ble_server_task", 4018, NULL, 10, NULL);
+    	xTaskCreate(ble_server_tagtask, "ble_server_tagtask", 4018, NULL, 10, NULL);
+
+    	//GPS Task -> Read GPS Data and write valid data to Flash after certain interval
+    	xTaskCreate(gps_task, "gps_task", 2048, NULL, 10, NULL);
+    	//Task to write to SD Card
+    	xTaskCreate(gpslogger_Task, "gpsLogger_task", 4018, NULL, 10, NULL);
+    	xTaskCreate(taglogger_Task, "TagLogger_task", 4018, NULL, 10, NULL);
+
+    	//Task to initiate Sleep
+    	//Debug Task
+    	//xTaskCreate(prvDebug_Task, "Debug Task", 2048, NULL, 10, &xDebug_Handle);
+    	//configASSERT( xDebug_Handle );
+
+    }
+
 
     return;
+}
+
+
+
+void ble_coex_init()
+{
+	esp_err_t ret;
+
+	// Initialize NVS.
+	ret = nvs_flash_init();
+	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+		ESP_ERROR_CHECK(nvs_flash_erase());
+		ret = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK( ret );
+
+	ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
+	esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+	ret = esp_bt_controller_init(&bt_cfg);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_bluedroid_init();
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_bluedroid_enable();
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s enable bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
+		return;
+	}
+
+	ret = esp_ble_gap_register_callback(gap_event_handler);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gap register error, error code = %x", ret);
+		return;
+	}
+
+	// gatts register
+	ret = esp_ble_gatts_register_callback(gatts_event_handler);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gatts register error, error code = %x", ret);
+		return;
+	}
+
+	ret = esp_ble_gatts_app_register(GATTS_PROFILE_A_APP_ID);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
+		return;
+	}
+
+	ret = esp_ble_gatts_app_register(GATTS_PROFILE_B_APP_ID);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "gatts app register error, error code = %x", ret);
+		return;
+	}
+
+
+	// gattc regisrter
+	ret = esp_ble_gattc_register_callback(esp_gattc_cb);
+	if(ret) {
+		ESP_LOGE(COEX_TAG, "%s gattc register failed, error code = %x\n", __func__, ret);
+		return;
+	}
+
+	ret = esp_ble_gattc_app_register(GATTC_PROFILE_C_APP_ID);
+	if (ret) {
+		ESP_LOGE(COEX_TAG, "%s gattc app register failed, error code = %x\n", __func__, ret);
+	}
+
+	esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
+	if (local_mtu_ret) {
+		ESP_LOGE(COEX_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
+	}
+
+
 }
