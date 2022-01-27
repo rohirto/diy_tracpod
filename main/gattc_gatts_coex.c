@@ -664,9 +664,9 @@ static void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, 
 
 /* GPS Profile handling */
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param) {
-	server_handle_gps.app_gatt_if =gatts_if;
-	server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
-	server_handle_gps.conn_id =  param->write.conn_id;
+//	server_handle_gps.app_gatt_if =gatts_if;
+//	server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
+//	server_handle_gps.conn_id =  param->write.conn_id;
     switch (event) {
     case ESP_GATTS_REG_EVT:
         ESP_LOGI(COEX_TAG, "REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
@@ -800,7 +800,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle = param->add_char.attr_handle;
         gatts_profile_tab[GATTS_PROFILE_A_APP_ID].descr_uuid.len = ESP_UUID_LEN_16;
         gatts_profile_tab[GATTS_PROFILE_A_APP_ID].descr_uuid.uuid.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG;
-
+        server_handle_gps.char_handle = gatts_profile_tab[GATTS_PROFILE_A_APP_ID].char_handle;
         esp_err_t add_descr_ret = esp_ble_gatts_add_char_descr(gatts_profile_tab[GATTS_PROFILE_A_APP_ID].service_handle, &gatts_profile_tab[GATTS_PROFILE_A_APP_ID].descr_uuid,
                                                                 ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, NULL, NULL);
         if (add_descr_ret) {

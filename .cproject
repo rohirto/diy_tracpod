@@ -20,4 +20,5 @@
 		<pathentry kind="src" path="sdcard_driver"/>
 		<pathentry kind="src" path="treel_tag"/>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

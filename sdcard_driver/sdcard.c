@@ -40,6 +40,8 @@ char sd_buffer[250];
 
 #define SPI_DMA_CHAN    1
 
+#define GPS_DATA_LEN	38
+#define TAG_DATA_LEN	17
 
 //Global variables
 sdcard_handle sd_handle;
@@ -63,6 +65,8 @@ extern SemaphoreHandle_t xTagDataQueueMutex;
 extern SemaphoreHandle_t xSDMutex;
 extern SemaphoreHandle_t xGPSQueueMutex;
 extern m_gps_handle gps_handle;
+extern ble_server_handle server_handle_gps;
+extern ble_server_handle server_handle_tag;
 void gpslogger_Task(void* pvParams)
 {
 	gps_queue_msg gps;
@@ -85,7 +89,7 @@ void gpslogger_Task(void* pvParams)
 			{
 				ESP_LOGI(SD_TAG,"\n%d/%d/%d %2d:%02d:%02d\tlatitude   = %.05f°N\tlongitude = %.05f°E\r\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
 				//Write to SD Card
-				if(1)
+				if(server_handle_gps.connected == false)
 				{
 					sprintf(sd_buffer,"%02d/%02d/%d\t%02d:%02d:%02d\t%.05f\t%.05f\n",gps.date.day,gps.date.month, gps.date.year,gps.tim.hour, gps.tim.minute, gps.tim.second, gps.lat, gps.longi);
 					xSemaphoreTake(xSDMutex, portMAX_DELAY);
@@ -97,8 +101,11 @@ void gpslogger_Task(void* pvParams)
 				}
 				else
 				{
-					//SD Card busy
-					ESP_LOGE(SD_TAG,"Error SD Card not mounted or Busy");
+					//When connected to client dont log the data
+					memcpy(server_handle_gps.notify_data,sd_buffer, GPS_DATA_LEN);
+					//Write to the BLE characterstics
+					esp_ble_gatts_set_attr_value(server_handle_gps.char_handle,sizeof(server_handle_gps.notify_data),server_handle_gps.notify_data);
+
 				}
 			}
 			xSemaphoreGive( xGPSQueueMutex );
@@ -121,17 +128,30 @@ void taglogger_Task(void* pvParams)
 			xSemaphoreTake(xTagDataQueueMutex, portMAX_DELAY);
 			if(xQueueReceive(xTagDataQueue, &tag, ( TickType_t ) 20 ) == pdPASS)
 			{
-				ESP_LOGI(SD_TAG, "Temperature: %d\tPressure: %d\tTag Batt: %d", tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
-				//Write to SD Card
+				if(server_handle_tag.connected == false)
+				{
+					ESP_LOGI(SD_TAG, "Temperature: %d\tPressure: %d\tTag Batt: %d", tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+					//Write to SD Card
 
 
-				sprintf(sd_buffer,"%d\t%04d\t%05d\t%03d\n",tag.tag_type,tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
-				xSemaphoreTake(xSDMutex, portMAX_DELAY);
-				write_data_to_file("tag.txt",sd_buffer);
-				xSemaphoreGive( xSDMutex );
-				f_tag_file_handle.if_exist = true;
-				f_tag_file_handle.file_read = false;
-				//f_tag_file_handle.busy = false;
+					sprintf(sd_buffer,"%d\t%04d\t%05d\t%03d\n",tag.tag_type,tag.tag_temperature, tag.tag_pressure, tag.tag_battery);
+					xSemaphoreTake(xSDMutex, portMAX_DELAY);
+					write_data_to_file("tag.txt",sd_buffer);
+					xSemaphoreGive( xSDMutex );
+					f_tag_file_handle.if_exist = true;
+					f_tag_file_handle.file_read = false;
+					//f_tag_file_handle.busy = false;
+
+				}
+				else
+				{
+					//When connected to client dont log to the server
+					memcpy(server_handle_tag.notify_data,sd_buffer, TAG_DATA_LEN);
+					//Write to the BLE characterstics
+					esp_ble_gatts_set_attr_value(server_handle_tag.char_handle,sizeof(server_handle_tag.notify_data),server_handle_tag.notify_data);
+
+				}
+
 
 			}
 			xSemaphoreGive( xTagDataQueueMutex );

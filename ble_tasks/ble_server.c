@@ -297,8 +297,11 @@ app_ret gps_file_handling()
 					ESP_LOGI(SERVER_TAG,"GPS Data To be uploaded: %s",gps_line);
 					memcpy(server_handle_gps.notify_data, gps_line, 38);
 					//Write to Client
-					esp_ble_gatts_send_indicate(server_handle_gps.app_gatt_if, server_handle_gps.conn_id, server_handle_gps.char_handle,
-							sizeof(server_handle_gps.notify_data), server_handle_gps.notify_data, false);
+					//esp_ble_gatts_send_indicate(server_handle_gps.app_gatt_if, server_handle_gps.conn_id, server_handle_gps.char_handle,
+					//		sizeof(server_handle_gps.notify_data), server_handle_gps.notify_data, false);
+					//TODO
+					//Implement just write to characterstics
+					esp_ble_gatts_set_attr_value(server_handle_gps.char_handle,sizeof(server_handle_gps.notify_data),server_handle_gps.notify_data);
 					gps_file_handle.valid_data = false;
 				}
 			}
@@ -359,8 +362,12 @@ app_ret f_tag_file_handling()
 					ESP_LOGI(SERVER_TAG,"Tag Data To be uploaded: %s",tag_line);
 					memcpy(server_handle_tag.notify_data, tag_line, TAG_BUFFER_LEN);
 					//Write to Client
-					esp_ble_gatts_send_indicate(server_handle_tag.app_gatt_if, server_handle_tag.conn_id, server_handle_tag.char_handle,
-							sizeof(server_handle_tag.notify_data), server_handle_tag.notify_data, false);
+					//esp_ble_gatts_send_indicate(server_handle_tag.app_gatt_if, server_handle_tag.conn_id, server_handle_tag.char_handle,
+					//		sizeof(server_handle_tag.notify_data), server_handle_tag.notify_data, false);
+					//TODO
+					//Implement just write to characterstics
+					esp_ble_gatts_set_attr_value(server_handle_tag.char_handle,sizeof(server_handle_tag.notify_data),server_handle_tag.notify_data);
+
 					f_tag_file_handle.valid_data = false;
 				}
 			}
